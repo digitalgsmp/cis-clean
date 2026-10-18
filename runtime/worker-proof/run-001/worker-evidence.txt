@@ -1,0 +1,8 @@
+schema=cis-contained-worker-evidence-v1
+uid=1000
+gid=1000
+operation=normalize-text
+input_sha256=6075844a9aa2f6f7df175c45903243fc81f1af24ff5c19809c771fc88351213d
+candidate_sha256=f2868690639dd774f709c4042d81a53357ee7c73f35431c3358a8d42755cca81
+network=none_by_container_contract
+host_action=none

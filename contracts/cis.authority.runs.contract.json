@@ -1,0 +1,37 @@
+{
+  "module_id": "cis.authority.runs",
+  "responsibility": "Owns the atomic execution-attempt claims and the ledger of completed and failed backend runs and their hashed results.",
+  "layer": "L2",
+  "owned_authority": [
+    "execution_attempt_claims",
+    "backend_runs"
+  ],
+  "reads": [
+    "execution_attempt_claims",
+    "backend_runs"
+  ],
+  "writes": [
+    "execution_attempt_claims",
+    "backend_runs"
+  ],
+  "mutation_interface": "RunAuthority.claim and RunAuthority.record through AuthorityStore.insert",
+  "depends_on": [
+    "cis.authority.store"
+  ],
+  "forbidden_dependencies": [
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — an append-only UNIQUE authorization claim is required before adapter entry, a run row requires an existing authorization by foreign key, status is constrained to completed or failed, and no row can be amended after the fact",
+  "recovery_behavior": "A failed or interrupted attempt retains its immutable claim and cannot silently execute again; recovery requires a new authorization rather than replaying the spent one",
+  "replacement_contract": "A replacement must atomically claim one attempted boundary crossing per authorization before execution, record authorization id, opaque adapter id, request hash, status, exit code and result hash, and never branch on the adapter id",
+  "evidence_produced": [
+    "unique execution-attempt claim with request hash and run nonce",
+    "result_hash per run",
+    "evidence_id linking the run to its observation"
+  ],
+  "verification": "python3 -m unittest tests.test_execution -v"
+}

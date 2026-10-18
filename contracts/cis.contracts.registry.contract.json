@@ -1,0 +1,29 @@
+{
+  "module_id": "cis.contracts.registry",
+  "responsibility": "Validates and holds the sixteen-field module contracts and the invariants over them.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "contracts/*.contract.json"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [],
+  "forbidden_dependencies": [
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.gateway",
+    "cis.authority.store"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — an incomplete, malformed, duplicated or invariant-violating contract is refused before it is recorded anywhere",
+  "recovery_behavior": "Stateless validator; re-reads the contract documents from disk on the next load and reports the same deterministic verdict, so an interrupted load leaves nothing partially registered",
+  "replacement_contract": "A replacement must enforce the same sixteen required fields, refuse unexpected fields, and preserve the five registry invariants; callers depend only on ContractRegistry.get, dependency_order, authority_owners and registry_hash",
+  "evidence_produced": [
+    "registry_hash over every contract document",
+    "per-contract contract_hash",
+    "ContractError detail naming the violated rule and module"
+  ],
+  "verification": "python3 -m unittest tests.test_contracts -v"
+}

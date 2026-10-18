@@ -1,0 +1,36 @@
+{
+  "module_id": "cis.authority.authorization",
+  "responsibility": "Owns the structured execution contract, records the canonical accepted authority an ALLOW rests on, and verifies that its binding recomputes from authority.",
+  "layer": "L2",
+  "owned_authority": [
+    "execution_authorizations"
+  ],
+  "reads": [
+    "execution_authorizations",
+    "intent_transactions",
+    "continuity_decisions"
+  ],
+  "writes": [
+    "execution_authorizations"
+  ],
+  "mutation_interface": "AuthorizationAuthority.record through AuthorityStore.insert, with the binding hash computed at write time",
+  "depends_on": [
+    "cis.authority.store"
+  ],
+  "forbidden_dependencies": [
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — verify refuses an unknown authorization, a binding that does not recompute, a verdict that is not ALLOW, a superseded objective and a moved baseline, and raises rather than returning a soft result",
+  "recovery_behavior": "Verification is a pure re-derivation from stored rows, so it yields the same verdict after any crash, restart or process change without needing cached state",
+  "replacement_contract": "A replacement must bind instruction hash, decision hash, authorization identity, scope and baseline into one recomputable digest, must carry required_evidence naming canonical accepted authority rather than retrieved antecedent ids, and must refuse on mutation, non-ALLOW verdict, stale objective or moved baseline",
+  "evidence_produced": [
+    "binding_hash per authorization",
+    "reason_code from a closed vocabulary per verdict",
+    "BindingError or StaleAuthorization detail naming recorded versus recomputed"
+  ],
+  "verification": "python3 -m unittest tests.test_authorization -v"
+}

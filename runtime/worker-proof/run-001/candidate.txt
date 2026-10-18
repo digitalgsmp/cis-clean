@@ -1,0 +1,2 @@
+cis contained worker
+produces a candidate, not a promotion.

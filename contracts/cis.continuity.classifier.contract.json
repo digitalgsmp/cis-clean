@@ -1,0 +1,28 @@
+{
+  "module_id": "cis.continuity.classifier",
+  "responsibility": "Classifies one exchange as question, addition, correction or explicit redirection using a closed vocabulary over the user's exact words.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "the verbatim instruction passed to it"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [],
+  "forbidden_dependencies": [
+    "cis.authority.store",
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.gateway"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed toward continuity — an instruction with no explicit redirection marker is never classified as a redirection, so ambiguity preserves the active objective instead of replacing it",
+  "recovery_behavior": "Pure function of its input with no state, so it returns the identical classification on any retry after any failure",
+  "replacement_contract": "A replacement must keep redirection explicit, treat questions and memory fragments as retrieval cues, and return a rationale and matched marker alongside the classification",
+  "evidence_produced": [
+    "classification with matched_marker and rationale",
+    "is_retrieval_cue and is_fragment flags per exchange"
+  ],
+  "verification": "python3 -m unittest tests.test_continuity -v"
+}

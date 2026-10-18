@@ -1,0 +1,41 @@
+{
+  "module_id": "cis.worker.contained_nonroot",
+  "responsibility": "Executes one gateway-bound frozen task contract in a fresh nonroot container and returns only a candidate plus independently checkable containment evidence.",
+  "layer": "L3",
+  "owned_authority": [],
+  "reads": [
+    "the token-covered ExecutionRequest supplied through cis.execution.port",
+    "a read-only frozen task-contract bundle",
+    "a token-covered compiled policy envelope",
+    "the closed check/evidence-to-verified-fact mapping in cis.worker.policy_obligations"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [
+    "cis.execution.port",
+    "cis.policy.compiler",
+    "cis.assurance.task_contract"
+  ],
+  "forbidden_dependencies": [
+    "cis.authority.store",
+    "cis.assurance.authority",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion",
+    "cis.host.promotion_gate",
+    "cis.interface.api",
+    "cis.workbench.service"
+  ],
+  "trust_domain": "fresh_nonroot_networkless_container",
+  "execution_location": "fresh Docker container with network none, read-only root, all capabilities dropped, no-new-privileges, nonroot uid, bounded pids, memory, cpu and wall time",
+  "failure_boundary": "fail_closed — missing, stale, forged or mismatched policy envelope, non-recomputing task contract, unknown policy obligation label, obligation mapped to an unknown or absent verified fact, mutable image identity, invalid artifact digest, incomplete containment evidence, ambiguous timeout cleanup or teardown residue refuses before Docker entry where possible and before a completed run in every case",
+  "recovery_behavior": "A timeout or failure force-removes the named container, accepts only Docker's exact absence errors, polls bounded in-progress removal to verified absence, and leaves the durable attempt claim spent; all contract and candidate files are temporary",
+  "replacement_contract": "Any replacement remains behind cis.execution.port, requires the same frozen task-contract and policy-envelope payloads plus run nonce, independently recomputes both bindings, uses a closed auditable mapping from each advertised policy check/evidence label to facts it actually verifies, keeps host facts distinct from container claims, runs an immutable resolved image identity, cannot promote its own candidate, and separates deterministic candidate results from run-specific attestation",
+  "evidence_produced": [
+    "candidate content and sha256 bound to the frozen task-contract and authorization hashes",
+    "worker uid and gid plus measured network interfaces, effective capabilities, no-new-privileges, cgroup limits, filesystem writes and host-action facts",
+    "host-side verification that the named container is absent after completion or timeout",
+    "policy evidence labels emitted as label=verified only after every mapped underlying fact verifies"
+  ],
+  "verification": "python3 -m unittest tests.test_contained_worker -v and sg docker -c 'PYTHONPATH=src python3 tools/prove_contained_worker.py'"
+}

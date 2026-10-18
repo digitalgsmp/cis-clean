@@ -1,0 +1,30 @@
+{
+  "module_id": "cis.execution.port",
+  "responsibility": "Defines the CIS-owned Layer-2 execution contract, single-use capability token and closed adapter enforcement vocabulary.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "the execution request handed to it"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [],
+  "forbidden_dependencies": [
+    "cis.authority.store",
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — a request with no opaque issued capability, a capability issued for different content, or a spent capability is refused before any backend work begins",
+  "recovery_behavior": "Outstanding capabilities are process-local and single-use; interruption invalidates or spends them, while durable recovery requires a new execution authorization rather than token replay",
+  "replacement_contract": "A replacement must keep the request shape free of backend-specific fields, issue an unpredictable single-use capability bound server-side to the authorization binding and exact request, keep run-specific attestation outside the deterministic result hash, declare capabilities rather than infer them, and explicitly enumerate the policy prohibitions, checks and evidence labels it can deterministically satisfy",
+  "evidence_produced": [
+    "request_hash over the full request contract view",
+    "result_hash over the stable semantic result while run-specific evidence remains separately admitted",
+    "ExecutionRefused detail when a token does not verify",
+    "closed adapter declarations for deterministically enforced policy prohibitions, checks and evidence labels"
+  ],
+  "verification": "python3 -m unittest tests.test_execution -v"
+}

@@ -1,0 +1,57 @@
+{
+  "module_id": "cis.assurance.authority",
+  "responsibility": "Owns the six append-only assurance tables and exposes them only through disjoint task-contract, verifier, reviewer and promotion facades plus one read-only derived ledger.",
+  "layer": "L2",
+  "owned_authority": [
+    "task_contracts",
+    "verification_inputs",
+    "verification_results",
+    "review_results",
+    "objection_cycles",
+    "promotion_decisions"
+  ],
+  "reads": [
+    "task_contracts",
+    "verification_inputs",
+    "verification_results",
+    "review_results",
+    "objection_cycles",
+    "promotion_decisions"
+  ],
+  "writes": [
+    "task_contracts",
+    "verification_inputs",
+    "verification_results",
+    "review_results",
+    "objection_cycles",
+    "promotion_decisions"
+  ],
+  "mutation_interface": "TaskContractFacade.freeze, VerifierFacade.record_inputs and record_result, ReviewerFacade.record_review and open_objection_cycle, and PromotionFacade.record_decision, each appending through AuthorityStore.insert",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.authority.trajectory",
+    "cis.assurance.task_contract"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion",
+    "cis.assurance.projection",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process; it reaches no host and imports nothing that could",
+  "failure_boundary": "fail_closed — a second task contract under one authorization, a second verifier input or verification result for one task contract, a verification over a contract that has already moved past FROZEN, a review with no verification, an out-of-sequence cycle index, a fourth objection cycle, a cycle opened by a review that did not object, and a PROMOTION_AUTHORIZED without both a recorded VERIFIED_PASS and a recorded review PASS are each refused before the append",
+  "recovery_behavior": "Every table is append-only by trigger and every row is written in one statement, so an interruption leaves a shorter ledger rather than a half-written fact, and the derived state simply reads one step earlier",
+  "replacement_contract": "A replacement must keep single ownership of all six tables, keep the three write facades' public method names pairwise disjoint, derive assurance state from the rows rather than storing it, enforce the three-objection-cycle bound at the ledger as well as in SQL, refuse PROMOTION_AUTHORIZED unless both halves of the conjunction stand recorded, and record no host action",
+  "evidence_produced": [
+    "one immutable task_contracts row per frozen task contract, linked forward to its execution authorization",
+    "one immutable verification_inputs row and one verification_results row per verified task contract",
+    "up to three review_results rows and up to three objection_cycles rows per task contract, each carrying a recomputable digest",
+    "one promotion_decisions row per decided task contract, with host_action recorded as NONE_RECORD_ONLY",
+    "one micro trajectory event per assurance append, so each step is visible without reading the assurance tables"
+  ],
+  "verification": "python3 -m unittest tests.test_assurance -v"
+}

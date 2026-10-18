@@ -1,0 +1,45 @@
+{
+  "module_id": "cis.assurance.reviewer",
+  "responsibility": "Reviews one verified task contract as a separate lineage through its own input port, recording at most three bounded objection cycles before escalation.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "task_contracts",
+    "verification_results",
+    "review_results",
+    "objection_cycles",
+    "execution_authorizations",
+    "backend_runs",
+    "evidence_records",
+    "blueprint/reconstruction_manifest.json"
+  ],
+  "writes": [],
+  "mutation_interface": "none — it appends only through cis.assurance.authority's reviewer facade, which owns review_results and objection_cycles",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.authority.authorization",
+    "cis.blueprint.manifest",
+    "cis.assurance.task_contract",
+    "cis.assurance.authority"
+  ],
+  "forbidden_dependencies": [
+    "independence:cis.assurance.verifier",
+    "independence:cis.assurance.promotion",
+    "cis.interface.api",
+    "cis.assurance.projection",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process, as a lineage separate from the author and from the verifier",
+  "failure_boundary": "fail_closed — a fourth review cycle is refused before any packet is assembled, and so is a review with no recorded verification, a task contract whose independent digest does not recompute, an authorization binding that does not recompute, a task contract linking to a binding that is not the authorization's own, submitted evidence that does not recompute its own digest, a verification digest that does not recompute from its own source fields, and any review ledger that disagrees with the objection-cycle ledger",
+  "recovery_behavior": "Each cycle is one review append followed by one cycle append, so an interruption leaves a recorded review with no cycle; the next call recomputes the expected cycle index from the ledger and refuses rather than guessing which of the two is current",
+  "replacement_contract": "A replacement must assemble its packet from authority through its own port, must recompute every digest it relies on instead of accepting a recorded one, must record its lineage on every review, must bound objections to three cycles and escalate on the third, must never read a verification_inputs row as if it were the submission, and must remain unable to reach the verifier or the promotion module through any chain of dependencies",
+  "evidence_produced": [
+    "one review_results row per cycle carrying the packet hash and the digests the reviewer itself recomputed",
+    "one objection_cycles row per objecting review, numbered 1 to 3, carrying the recovery decision and recording replacement execution wiring as deferred to the contained-worker capability",
+    "a terminal flag on the third cycle, from which the ESCALATED state is derived",
+    "an ObjectionCyclesExhausted refusal naming the three recorded cycles when a fourth is attempted"
+  ],
+  "verification": "python3 -m unittest tests.test_assurance -v"
+}

@@ -1,0 +1,32 @@
+{
+  "module_id": "cis.authority.trajectory",
+  "responsibility": "Owns the append-only trajectory events from which position is derived.",
+  "layer": "L2",
+  "owned_authority": [
+    "trajectory_events"
+  ],
+  "reads": [
+    "trajectory_events"
+  ],
+  "writes": [
+    "trajectory_events"
+  ],
+  "mutation_interface": "TrajectoryAuthority.record through AuthorityStore.insert",
+  "depends_on": [
+    "cis.authority.store"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — events cannot be amended or deleted, seq is unique, and no column stores a current position that could drift from the events",
+  "recovery_behavior": "Position is recomputed from the highest-seq event on every read, so an interrupted run resumes with the last durably recorded step as the position and no reconciliation step is required",
+  "replacement_contract": "A replacement must keep macro and micro events in one ordered append-only sequence and must not store a position field that duplicates the latest event",
+  "evidence_produced": [
+    "ordered trajectory_events rows with per-event detail",
+    "the single highest-seq row from which you-are-here is derived"
+  ],
+  "verification": "python3 -m unittest tests.test_trajectory -v"
+}

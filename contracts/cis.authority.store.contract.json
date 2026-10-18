@@ -1,0 +1,33 @@
+{
+  "module_id": "cis.authority.store",
+  "responsibility": "Owns the SQLite connection, the migration ledger and the single sanctioned append primitive every authority module writes through.",
+  "layer": "L2",
+  "owned_authority": [
+    "schema_migrations"
+  ],
+  "reads": [
+    "schema_migrations",
+    "src/cis/authority/migrations/*.sql"
+  ],
+  "writes": [
+    "schema_migrations"
+  ],
+  "mutation_interface": "AuthorityStore.insert for one-row appends, AuthorityStore.insert_batch for an atomic validated batch to one table, and AuthorityStore.migrate for schema",
+  "depends_on": [],
+  "forbidden_dependencies": [
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — UPDATE and DELETE on any authority table are refused by trigger, an applied migration whose hash changed is refused, and opening an authority inside /mnt/projects/cis is refused outright",
+  "recovery_behavior": "Migrations are idempotent and hash-checked, so re-opening the same file re-derives the sequence counter from MAX(seq) across every authority table and resumes appending without renumbering history",
+  "replacement_contract": "A replacement must keep single-row and same-table batch appends atomic, refuse UPDATE and DELETE, preserve a monotonic seq across all authority tables, and apply the same migration files in filename order",
+  "evidence_produced": [
+    "schema_migrations rows with per-file sha256",
+    "AppendOnlyViolation on any attempted rewrite"
+  ],
+  "verification": "python3 -m unittest tests.test_authority -v"
+}

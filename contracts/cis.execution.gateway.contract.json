@@ -1,0 +1,37 @@
+{
+  "module_id": "cis.execution.gateway",
+  "responsibility": "Is the sole call path from CIS to any execution backend and refuses to dispatch without a verified ALLOW.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "execution_authorizations",
+    "trajectory_events"
+  ],
+  "writes": [],
+  "mutation_interface": "none — it appends runs, evidence and trajectory events only through the modules that own them",
+  "depends_on": [
+    "cis.execution.port",
+    "cis.execution.adapters.deterministic_mock",
+    "cis.authority.authorization",
+    "cis.authority.runs",
+    "cis.authority.evidence",
+    "cis.authority.trajectory",
+    "cis.policy.compiler"
+  ],
+  "forbidden_dependencies": [
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.authority.store"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — unknown authorization, non-recomputing binding, non-ALLOW verdict, stale objective, moved baseline, undeclared operation, unavailable backend, missing or malformed mandatory policy envelope, mismatched task-contract or selector binding, widened policy scope, unsupported policy obligations, incomplete authorization preflight, missing performed checks, or policy evidence not returned exactly as label=verified all refuse",
+  "recovery_behavior": "Every refusal is appended as a trajectory event and an atomic attempt claim remains after adapter entry, so an interrupted attempt leaves evidence rather than silence and recovery requires a new authorization",
+  "replacement_contract": "A replacement must build the request from recorded authorization rather than caller input, require and independently recompute a current policy envelope for adapters that declare it mandatory, refuse obligations outside the adapter's declared closed support, merge restrictions into the token-covered request, require exact label=verified result evidence, atomically claim the authorization before adapter entry, and issue a single-use capability only after that claim; the operation is never a dispatch argument",
+  "evidence_produced": [
+    "execution_dispatched, execution_completed and execution_refused trajectory events",
+    "atomic execution_attempt_claims row before adapter entry",
+    "backend_runs row with opaque adapter id and request hash after a result"
+  ],
+  "verification": "python3 -m unittest tests.test_execution -v"
+}

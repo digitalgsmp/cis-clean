@@ -1,0 +1,43 @@
+{
+  "module_id": "cis.projection.regeneration_gate",
+  "responsibility": "Proves that every declared derived view regenerates byte-identically from unchanged authority and that regeneration itself writes nothing.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "all append-only authority tables through AuthorityStore.query",
+    "blueprint/reconstruction_manifest.json::projection_regeneration",
+    "cis.blueprint.manifest.as_summary",
+    "cis.contracts.registry projections",
+    "cis.workbench.projection",
+    "cis.assurance.projection"
+  ],
+  "writes": [],
+  "mutation_interface": "none — it constructs fresh read models, hashes their JSON-safe values, and returns an ephemeral proof",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.blueprint.manifest",
+    "cis.contracts.registry",
+    "cis.workbench.projection",
+    "cis.assurance.projection"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, offline, over one clean-room authority handle",
+  "failure_boundary": "fail_closed — an incomplete inventory, a missing surface, unequal hashes from two fresh builds, a write during regeneration, or an unsafe authority table name refuses the proof",
+  "recovery_behavior": "Stateless and read-only; rerun from authority, and compare surface_set_hash across a reopened store for cold-start equivalence",
+  "replacement_contract": "A replacement must enumerate every manifest-declared projection, construct each view twice through fresh projection instances, compare canonical hashes, hash all authority before between and after, persist no view or proof, and fail closed on any omission mutation or mismatch",
+  "evidence_produced": [
+    "one ephemeral RegenerationProof naming the complete inventory and one canonical hash per surface",
+    "one surface_set_hash suitable for cold-start comparison",
+    "one authority_digest proven identical before between and after both regeneration passes",
+    "one proof_hash binding the gate identity inventory surface set authority digest and pass count"
+  ],
+  "verification": "python3 -m unittest tests.test_projection_regeneration -v"
+}

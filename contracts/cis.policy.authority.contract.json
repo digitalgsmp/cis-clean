@@ -1,0 +1,41 @@
+{
+  "module_id": "cis.policy.authority",
+  "responsibility": "Owns append-only admitted policy sources and task-contract-bound compiled policy envelopes, deriving lifecycle state without rewriting source history and returning an envelope only after its binding, digest and current policy-set hash verify.",
+  "layer": "L2",
+  "owned_authority": [
+    "policy_envelopes",
+    "policy_sources"
+  ],
+  "reads": [
+    "policy_envelopes",
+    "policy_sources",
+    "task_contracts",
+    "policy/operational_sources.json"
+  ],
+  "writes": [
+    "policy_envelopes",
+    "policy_sources"
+  ],
+  "mutation_interface": "PolicySourceAuthority.ingest/ingest_many through AuthorityStore.insert_batch, and PolicyAuthority.append through AuthorityStore.insert",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.assurance.authority",
+    "cis.policy.compiler"
+  ],
+  "forbidden_dependencies": [
+    "cis.execution.gateway",
+    "cis.worker.contained_nonroot",
+    "cis.interface.api"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process with no provider, network or host-action access",
+  "failure_boundary": "fail_closed — unreadable or malformed catalog input, changed content under an admitted policy_id, invalid whole-set lifecycle or conflicts, absent or mismatched frozen task contract, duplicate envelope, malformed stored JSON, unknown hash domain, non-recomputing digest and stale expected policy-set hash all refuse before a verified envelope is returned",
+  "recovery_behavior": "Policy-source batches append atomically and idempotently and envelopes append one at a time, so interruption leaves either the prior valid source set or the whole new batch and either no envelope or one fully verifiable envelope; changed applicable policy requires a new task contract",
+  "replacement_contract": "A replacement must remain the single owner of both tables, admit only closed-schema structured policy, keep the catalog cumulative, whole-set-validate before an atomic append, derive supersession without rewriting source history, bind exactly one envelope to one frozen task contract, recompute integrity on every read, compare the expected current applicable policy-set hash, and expose no unverified-row accessor to execution",
+  "evidence_produced": [
+    "immutable policy_sources rows carrying provenance and independently recomputable document hashes",
+    "one immutable policy_envelopes row per frozen task contract",
+    "a verified envelope dictionary whose digest and expected current policy-set hash recompute before gateway use"
+  ],
+  "verification": "python3 -m unittest tests.test_policy_sources tests.test_policy_resolver tests.test_policy_authority -v"
+}

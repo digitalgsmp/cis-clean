@@ -1,0 +1,36 @@
+{
+  "module_id": "cis.authority.continuity",
+  "responsibility": "Owns the continuity decision that records how an exchange was classified and which objective governs after it.",
+  "layer": "L2",
+  "owned_authority": [
+    "continuity_decisions"
+  ],
+  "reads": [
+    "continuity_decisions",
+    "objectives"
+  ],
+  "writes": [
+    "continuity_decisions"
+  ],
+  "mutation_interface": "ContinuityAuthority.record_decision through AuthorityStore.insert",
+  "depends_on": [
+    "cis.authority.store"
+  ],
+  "forbidden_dependencies": [
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — the active objective is derived from the latest decision rather than stored as a mutable flag, and a decision referencing an unknown objective or transaction is refused by foreign key",
+  "recovery_behavior": "The active objective is recomputed from the highest-seq decision on every read, so an interrupted write leaves the previous objective governing rather than leaving no objective at all",
+  "replacement_contract": "A replacement must record classification, treated_as, prior and active objective, antecedents and disposition, expose a recomputable decision_hash, and derive the active objective rather than storing it twice",
+  "evidence_produced": [
+    "decision_hash per decision",
+    "antecedents_json capturing what was retrieved and scored",
+    "superseded objective ids retained and queryable"
+  ],
+  "verification": "python3 -m unittest tests.test_continuity -v"
+}

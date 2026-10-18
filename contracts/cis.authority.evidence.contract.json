@@ -1,0 +1,37 @@
+{
+  "module_id": "cis.authority.evidence",
+  "responsibility": "Owns immutable evidence observations and the recorded conflicts between them.",
+  "layer": "L2",
+  "owned_authority": [
+    "evidence_records",
+    "evidence_conflicts"
+  ],
+  "reads": [
+    "evidence_records",
+    "evidence_conflicts"
+  ],
+  "writes": [
+    "evidence_records",
+    "evidence_conflicts"
+  ],
+  "mutation_interface": "EvidenceAuthority.admit and EvidenceAuthority.record_conflict through AuthorityStore.insert — admit is a privileged import seam and requires a non-empty admission_basis; there is no generic record alias and no public route reaches it",
+  "depends_on": [
+    "cis.authority.store"
+  ],
+  "forbidden_dependencies": [
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.gateway"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — evidence cannot be amended or deleted, and a detected conflict is recorded rather than resolved, which downstream turns into a HOLD",
+  "recovery_behavior": "Each observation carries its own content hash and original language, so a partially ingested evidence set is detectable and re-appendable without rewriting any existing row",
+  "replacement_contract": "A replacement must keep observations immutable, require an admission basis on every admitted observation, preserve the antecedent's original language alongside derived content, and record conflicts without inventing a resolution",
+  "evidence_produced": [
+    "content_hash per observation",
+    "admission_basis naming the trusted import path for every observation",
+    "evidence_conflicts rows with the conflicting subject and detail"
+  ],
+  "verification": "python3 -m unittest tests.test_authority -v"
+}

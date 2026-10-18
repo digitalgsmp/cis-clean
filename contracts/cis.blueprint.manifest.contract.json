@@ -1,0 +1,33 @@
+{
+  "module_id": "cis.blueprint.manifest",
+  "responsibility": "Loads and validates the reconstruction blueprint, exposes it as operational input, and is the canonical execution-authorization basis for each selected module.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "blueprint/reconstruction_manifest.json",
+    "contracts/*.contract.json"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [
+    "cis.contracts.registry"
+  ],
+  "forbidden_dependencies": [
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.gateway",
+    "cis.authority.store"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — a manifest that is missing a section, carries an unknown status, selects an uncontracted module, carries a literal dependency order or gives a selected module no non-blank evidence_basis is refused, and a manifest that disagrees with the contracts raises a recorded evidence conflict",
+  "recovery_behavior": "Stateless loader; the manifest and contracts on disk are the only inputs, so a fresh load fully restores the blueprint after any interruption",
+  "replacement_contract": "A replacement must expose current_stage, stages, selected modules with reconstruction_status and a non-empty evidence_basis, a derived dependency order, a baseline_hash covering manifest and contracts together, and a canonical authorization basis per module that returns nothing rather than a weak or inferred basis",
+  "evidence_produced": [
+    "manifest_hash over the exact manifest bytes",
+    "baseline_hash over manifest plus contract registry",
+    "the canonical authorization basis of a selected module, or none",
+    "BlueprintError or EvidenceConflict detail naming the refused section"
+  ],
+  "verification": "python3 -m unittest tests.test_blueprint -v"
+}

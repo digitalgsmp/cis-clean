@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_id": "CIS-OPERATIONAL-POLICY-SOURCES-001",
+  "provenance": "accepted operational baseline for policy-governed contained work",
+  "policies": [
+    {
+      "policy_id": "MASTER-OPERATIONAL-BASELINE-V1",
+      "lineage_id": "operational-baseline",
+      "kind": "MASTER",
+      "version": 1,
+      "status": "ACTIVE",
+      "supersedes": null,
+      "conflicts_with": [],
+      "selector": null,
+      "effect_kinds": ["PROHIBIT"],
+      "prohibited_actions": ["host:promote", "host:restart_service", "model:any", "network:any", "privilege:escalate", "write:/mnt/projects/cis"],
+      "required_checks": [],
+      "required_evidence": [],
+      "narrowed_scope": null,
+      "hold": false,
+      "rationale": "Operational baseline containing exactly the prohibitions the contained worker deterministically enforces.",
+      "evidence_basis": ["ADR-ARCH-003", "cis.worker.contained_nonroot.contract:enforced_policy_prohibitions"]
+    },
+    {
+      "policy_id": "MASTER-OPERATIONAL-BASELINE-V2",
+      "lineage_id": "operational-baseline",
+      "kind": "MASTER",
+      "version": 2,
+      "status": "ACTIVE",
+      "supersedes": "MASTER-OPERATIONAL-BASELINE-V1",
+      "conflicts_with": [],
+      "selector": null,
+      "effect_kinds": ["PROHIBIT", "REQUIRE_CHECK", "REQUIRE_EVIDENCE"],
+      "prohibited_actions": ["host:promote", "host:restart_service", "model:any", "network:any", "privilege:escalate", "write:/mnt/projects/cis"],
+      "required_checks": ["candidate_digest_recomputes", "network_isolated", "policy_envelope_bound", "teardown_verified"],
+      "required_evidence": ["candidate_digest_verified", "contained_network_isolation_verified", "container_teardown_verified", "task_policy_bindings_verified"],
+      "narrowed_scope": null,
+      "hold": false,
+      "rationale": "Operational baseline requiring host-derived proof of policy binding, candidate integrity, network isolation, and teardown in addition to the V1 prohibitions.",
+      "evidence_basis": ["ADR-ARCH-003", "cis.worker.policy_obligations:closed_mapping", "cis.worker.contained_nonroot.contract:verified_facts"]
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "authority_only_rollback": {
+    "prior_bytes_restored": true,
+    "state": "ROLLED_BACK"
+  },
+  "container_residue": [],
+  "first_fresh_run": {
+    "candidate_sha256": "f5ff32b0f856c3631f4ecdc61d13a34661ceca5040fdf29e180ba525598c0e19",
+    "promotion_decision": "PROMOTION_AUTHORIZED",
+    "result_hash": "de0b29a1b693259dda826bd8c611f00537e42384a05cea20e140ee9f4e26b60a",
+    "review": "PASS",
+    "verification": "VERIFIED_PASS"
+  },
+  "fresh_runs_identical": true,
+  "host_apply": {
+    "decision_id": "pd-502da8e2c9bb",
+    "state": "APPLIED"
+  },
+  "image": {
+    "configured_user": "65532:65532",
+    "id": "sha256:0c45f24fd22822d0fc8194542c8cd50e599e5c368b491300141ee2a7feebacb1",
+    "tag": "cis-contained-worker:proof-v2"
+  },
+  "kernel_boundary": {
+    "authorization_binding_hash": "8745363a0a8fdd42a0d8ced293276a4ad4c681267909fd17ace18cc11689da0c",
+    "candidate_digest_verified": "verified",
+    "candidate_sha256": "f5ff32b0f856c3631f4ecdc61d13a34661ceca5040fdf29e180ba525598c0e19",
+    "cap_eff": "0000000000000000",
+    "contained_network_isolation_verified": "verified",
+    "container_teardown_verified": "verified",
+    "contract_write": "denied",
+    "cpu_max": "50000 100000",
+    "gid": "65532",
+    "host_action": "none",
+    "input_sha256": "8f3f052db37b7bc9c19cf52f06c2b55d86434721b907709ef8a44d30c9813427",
+    "memory_max": "67108864",
+    "nets": "lo,",
+    "no_new_privs": "1",
+    "operation": "reconstruct_module",
+    "pids_max": "32",
+    "rootfs_write": "denied",
+    "run_nonce": "99f0acc9f9f48dbb0bb0137e78af6dfbb3745745eed711cf7a6604c7e088860d",
+    "schema": "cis-contained-worker-evidence-v3",
+    "task_contract_bundle_sha256": "8389cb36e2ae65bc69216525fe828b0a178dabec4e5e09e0c5fd48e7c044d04f",
+    "task_contract_hash": "e48f34c5254604472eaa124fc5eb696b4ab4185af7059e7419630541d634f438",
+    "task_policy_bindings_verified": "verified",
+    "uid": "65532",
+    "workspace_write": "allowed"
+  },
+  "proof": "CONTAINED_WORKER_A_TO_O",
+  "second_fresh_run": {
+    "promotion_decision": "PROMOTION_AUTHORIZED",
+    "result_hash": "de0b29a1b693259dda826bd8c611f00537e42384a05cea20e140ee9f4e26b60a",
+    "review": "PASS",
+    "verification": "VERIFIED_PASS"
+  },
+  "status": "PASS",
+  "timeout_cleanup": {
+    "container_absent": true,
+    "container_started": true,
+    "timeout_injected": true
+  }
+}

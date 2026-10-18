@@ -1,0 +1,37 @@
+{
+  "module_id": "cis.authority.intent",
+  "responsibility": "Owns the verbatim instruction record and the objective record as immutable source evidence.",
+  "layer": "L2",
+  "owned_authority": [
+    "intent_transactions",
+    "objectives"
+  ],
+  "reads": [
+    "intent_transactions",
+    "objectives"
+  ],
+  "writes": [
+    "intent_transactions",
+    "objectives"
+  ],
+  "mutation_interface": "IntentAuthority.record_instruction and IntentAuthority.record_objective, both through AuthorityStore.insert",
+  "depends_on": [
+    "cis.authority.store"
+  ],
+  "forbidden_dependencies": [
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — the verbatim column cannot be updated or deleted, and an interpretation is stored only in its own labeled column with a source link back to the verbatim row",
+  "recovery_behavior": "Append-only history means an interrupted session loses at most the uncommitted statement; the verbatim hash lets any later reader confirm the preserved words are byte-identical to what was submitted",
+  "replacement_contract": "A replacement must store the user's exact bytes unmodified, hash them, keep any interpretation in a separately labeled source-linked field, and never expose a mutation path to either",
+  "evidence_produced": [
+    "verbatim_hash per instruction",
+    "interpretation_label and interpretation_source per instruction"
+  ],
+  "verification": "python3 -m unittest tests.test_continuity -v"
+}

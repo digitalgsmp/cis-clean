@@ -1,0 +1,38 @@
+{
+  "module_id": "cis.execution.adapters.deterministic_mock",
+  "responsibility": "Implements the Layer-2 execution contract as a deterministic offline backend so the boundary has a real backend to prove replaceability against.",
+  "layer": "L3",
+  "owned_authority": [],
+  "reads": [
+    "the execution request handed to it through the port"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [
+    "cis.execution.port"
+  ],
+  "forbidden_dependencies": [
+    "cis.authority.store",
+    "cis.authority.intent",
+    "cis.authority.continuity",
+    "cis.authority.evidence",
+    "cis.authority.authorization",
+    "cis.authority.runs",
+    "cis.authority.trajectory",
+    "cis.workbench.service",
+    "cis.workbench.projection",
+    "cis.interface.api",
+    "cis.blueprint.manifest",
+    "cis.contracts.registry"
+  ],
+  "trust_domain": "cis_clean_execution_sandbox",
+  "execution_location": "in-process adapter, no socket, no filesystem write, no subprocess",
+  "failure_boundary": "fail_closed — an unverified token, an undeclared operation or an empty allowed scope refuses, and the backend performs no partial work before refusing",
+  "recovery_behavior": "Deterministic and side-effect free, so re-running an identical authorized request yields an identical result hash and an interrupted run leaves nothing to clean up",
+  "replacement_contract": "Any backend may replace this one by satisfying the port: consume a valid single-use capability, report only checks it actually performs, and be deterministic in semantic result hash; no caller above the port changes",
+  "evidence_produced": [
+    "artifact_digest derived from the authorized request",
+    "evidence lines naming operation, scope, stopping condition and return point"
+  ],
+  "verification": "python3 -m unittest tests.test_execution -v"
+}

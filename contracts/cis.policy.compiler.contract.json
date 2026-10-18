@@ -1,0 +1,32 @@
+{
+  "module_id": "cis.policy.compiler",
+  "responsibility": "Compiles closed MASTER and exact-match TASK policy documents into one task-contract-bound immutable envelope or refuses.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "validated structured policy documents supplied in process",
+    "one frozen task-contract identity and hash"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [
+    "cis.assurance.task_contract"
+  ],
+  "forbidden_dependencies": [
+    "cis.policy.authority",
+    "cis.authority.store",
+    "cis.execution.gateway",
+    "cis.worker.contained_nonroot",
+    "cis.interface.api"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process pure deterministic compilation with no store, provider, model, network or host action",
+  "failure_boundary": "fail_closed — missing MASTER policy, unknown fields or effects, selector ambiguity, invalid or cyclic supersession, applicable conflict, HOLD, task widening, malformed binding and non-recomputing envelopes all refuse compilation",
+  "recovery_behavior": "Correct the structured source or exact selector and compile again; no failed compilation mutates authority or leaves partial state",
+  "replacement_contract": "A replacement must retain the closed schema, exact four-dimensional selector, unconditional MASTER inheritance, additive or narrowing-only TASK composition, canonical ordering, full active selected-document policy-set hash, the minimal supersession ancestry required for independent envelope recompilation, independent envelope hash domain and task-contract binding",
+  "evidence_produced": [
+    "immutable in-memory policy envelope carrying the active selected policy ids, their supersession ancestry, and effective prohibitions, checks, evidence and scope",
+    "domain-separated hashes for the MASTER baseline, selected full policy content and final task-contract-bound envelope"
+  ],
+  "verification": "python3 -m unittest tests.test_policy -v"
+}

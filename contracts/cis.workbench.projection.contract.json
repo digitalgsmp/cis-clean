@@ -1,0 +1,40 @@
+{
+  "module_id": "cis.workbench.projection",
+  "responsibility": "Generates the macro, micro and you-are-here views from authority without storing any of them.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "trajectory_events",
+    "intent_transactions",
+    "continuity_decisions",
+    "backend_runs",
+    "execution_authorizations",
+    "blueprint/reconstruction_manifest.json"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [
+    "cis.blueprint.manifest",
+    "cis.authority.intent",
+    "cis.authority.continuity",
+    "cis.authority.runs",
+    "cis.authority.authorization",
+    "cis.authority.trajectory"
+  ],
+  "forbidden_dependencies": [
+    "cis.authority.store",
+    "cis.interface.api",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_open on completeness and fail_closed on invention — with no events recorded the marker reports no position rather than asserting one, and nothing in the view is written back to authority",
+  "recovery_behavior": "Regenerated from authority on every call and never cached, so it is correct immediately after any restart and cannot be left stale by an interrupted write",
+  "replacement_contract": "A replacement must derive progress and position from authority alone, expose macro stage with selected-module progress and micro steps per transaction, and must not persist a position of its own",
+  "evidence_produced": [
+    "you_are_here with the derived_from pointer naming the event seq it came from",
+    "macro counts of contracted, authorized and executed modules"
+  ],
+  "verification": "python3 -m unittest tests.test_trajectory -v"
+}

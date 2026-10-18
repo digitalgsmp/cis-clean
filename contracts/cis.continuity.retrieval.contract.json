@@ -1,0 +1,29 @@
+{
+  "module_id": "cis.continuity.retrieval",
+  "responsibility": "Ranks immutable evidence against a retrieval cue for continuity only, returning antecedents in their original language and never a permission to execute.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "evidence_records rows passed to it"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [],
+  "forbidden_dependencies": [
+    "cis.authority.store",
+    "cis.workbench.service",
+    "cis.interface.api",
+    "cis.execution.gateway"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_open on relevance and fail_closed on fabrication — a cue with no overlap returns an empty list rather than a weak guess, and an empty list changes no verdict because retrieval is not an authorization basis",
+  "recovery_behavior": "Pure function over the evidence it is handed, with a fixed stoplist and deterministic tie-breaking, so repeated calls after any interruption return the identical ranking",
+  "replacement_contract": "A replacement must be deterministic, require no network or model, return the antecedent's original language and matched terms, rank original human intent above records generated from execution, order results stably on equal scores, and confer no execution authority on anything it returns",
+  "evidence_produced": [
+    "per-antecedent score and matched_terms",
+    "the original_language of each retrieved antecedent",
+    "the provenance tier of each antecedent and its non-authorizing role"
+  ],
+  "verification": "python3 -m unittest tests.test_continuity -v"
+}

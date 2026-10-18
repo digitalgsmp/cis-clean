@@ -1,0 +1,44 @@
+{
+  "module_id": "cis.host.promotion_gate",
+  "responsibility": "Applies an evidence-matching candidate to one derived path only under a recorded PROMOTION_AUTHORIZED decision and restores prior bytes from append-only authority.",
+  "layer": "L2",
+  "owned_authority": [
+    "host_promotion_plans",
+    "host_promotion_events"
+  ],
+  "reads": [
+    "promotion_decisions",
+    "task_contracts",
+    "backend_runs",
+    "evidence_records",
+    "host_promotion_plans",
+    "host_promotion_events"
+  ],
+  "writes": [
+    "host_promotion_plans",
+    "host_promotion_events"
+  ],
+  "mutation_interface": "HostPromotionGate.apply, rollback and recover append plans or events through AuthorityStore.insert and atomically replace only a path derived from the frozen task contract beneath target_root",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.assurance.authority",
+    "cis.assurance.promotion"
+  ],
+  "forbidden_dependencies": [
+    "cis.worker.contained_nonroot",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.interface.api"
+  ],
+  "trust_domain": "cis_clean_bounded_host_control",
+  "execution_location": "host process with write access only to an explicitly configured sealed promotion root; never the protected reference environment",
+  "failure_boundary": "fail_closed — absent authorization, nonmatching candidate evidence, path escape, immutable-plan disagreement, unverified apply digest or unverified rollback digest refuses before a completion event is recorded",
+  "recovery_behavior": "The exact candidate and previous bytes are appended before mutation; recover derives an incomplete apply or rollback from events and resumes it idempotently from authority alone",
+  "replacement_contract": "A replacement must keep decision and action separate, record an immutable plan before mutation, derive the target from the task contract, verify observed bytes before completion, and restore prior state solely from recorded plan authority",
+  "evidence_produced": [
+    "one immutable host_promotion_plans row containing decision linkage, derived target, candidate bytes and prior bytes",
+    "append-only APPLIED, ROLLBACK_STARTED and ROLLED_BACK events with observed digests",
+    "a derived status whose state follows only from the recorded event sequence"
+  ],
+  "verification": "python3 -m unittest tests.test_host_promotion_gate -v"
+}

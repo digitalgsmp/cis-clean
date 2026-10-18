@@ -1,0 +1,39 @@
+{
+  "module_id": "cis.assurance.promotion",
+  "responsibility": "Records one promotion decision per task contract on the conjunction of a passed verification and a passed review, and performs no host action.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "task_contracts",
+    "verification_results",
+    "review_results",
+    "objection_cycles",
+    "promotion_decisions"
+  ],
+  "writes": [],
+  "mutation_interface": "none — it appends only through cis.assurance.authority's promotion facade, which owns promotion_decisions",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.assurance.authority"
+  ],
+  "forbidden_dependencies": [
+    "independence:cis.assurance.verifier",
+    "independence:cis.assurance.reviewer",
+    "cis.interface.api",
+    "cis.assurance.projection",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process; this module imports no os, subprocess, shutil, socket, pathlib or sys and therefore cannot reach a host at all",
+  "failure_boundary": "fail_closed — PROMOTION_DENIED is the answer whenever verification is unrecorded, verification did not pass, review is pending, review raised objections, or the task contract has escalated, and PROMOTION_AUTHORIZED is refused outright by the owning facade unless both halves of the conjunction stand recorded and the contract is not escalated",
+  "recovery_behavior": "Idempotent — a task contract whose promotion is already decided returns the recorded decision rather than appending a second, because the decision is a conclusion about a fixed set of immutable facts",
+  "replacement_contract": "A replacement must read the verifier's and the reviewer's RECORDED results rather than calling either one, must authorize only on the conjunction, must cite the exact verification result and review a decision rests on, must record host_action as NONE_RECORD_ONLY, and must contain no capability to act on a host",
+  "evidence_produced": [
+    "one promotion_decisions row carrying the decision, a distinct reason code per denial cause, and the linkage to the verification and review it rests on",
+    "host_action recorded as NONE_RECORD_ONLY on every decision",
+    "an evaluate() result that answers the conjunction without recording anything",
+    "a PromotionRefused from the owning facade if PROMOTION_AUTHORIZED is ever attempted without both halves"
+  ],
+  "verification": "python3 -m unittest tests.test_assurance -v"
+}

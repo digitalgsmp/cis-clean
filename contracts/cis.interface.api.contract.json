@@ -1,0 +1,44 @@
+{
+  "module_id": "cis.interface.api",
+  "responsibility": "Exposes the slice to the Workbench as a JSON control surface over the Layer-2 service.",
+  "layer": "L1",
+  "owned_authority": [],
+  "reads": [
+    "the request method, path and body handed to it"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [
+    "cis.conductor.service",
+    "cis.workbench.service",
+    "cis.assurance.projection"
+  ],
+  "forbidden_dependencies": [
+    "cis.authority.store",
+    "cis.authority.intent",
+    "cis.authority.continuity",
+    "cis.authority.evidence",
+    "cis.authority.authorization",
+    "cis.authority.runs",
+    "cis.authority.trajectory",
+    "cis.assurance.authority",
+    "cis.assurance.task_contract",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion",
+    "cis.execution.port",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process dispatcher, optionally wrapped by a loopback-only, deliberately single-threaded stdlib HTTP server that carries no caller identity and no authentication proof",
+  "failure_boundary": "fail_closed — any refusal from below is returned as an error payload with its code and never softened into a success, and an unknown route returns the route list rather than guessing",
+  "recovery_behavior": "Stateless request dispatcher holding no session, so it serves correct answers from authority immediately after any restart",
+  "replacement_contract": "A replacement must route every state-changing route through the Layer-2 Conductor and never through a Workbench mutation method, reach read-only authority only through the Layer-2 service and its projections, carry no SQL and no adapter, accept on each route exactly that route's declared string fields and no caller-supplied actor or classification, expose no evidence-admission or objective-mutation seam, expose the assurance increment through GET routes only and never a route that freezes, verifies, reviews or promotes, and keep the dispatcher callable without a socket",
+  "evidence_produced": [
+    "HTTP-shaped status and body per request",
+    "the error code of every refusal it passes through",
+    "read-only assurance progress, including the reported A-O order reconciliation, with no state-changing assurance route in the surface"
+  ],
+  "verification": "python3 -m unittest tests.test_api -v"
+}

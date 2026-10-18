@@ -1,0 +1,47 @@
+{
+  "module_id": "cis.conductor.service",
+  "responsibility": "Wraps every public state-changing transaction that crosses the Layer-1 boundary in one immutable envelope bound to the authority rows it delegates to.",
+  "layer": "L2",
+  "owned_authority": [
+    "conductor_envelopes"
+  ],
+  "reads": [
+    "intent_transactions",
+    "continuity_decisions",
+    "execution_authorizations",
+    "backend_runs",
+    "conductor_envelopes",
+    "blueprint/reconstruction_manifest.json"
+  ],
+  "writes": [
+    "conductor_envelopes"
+  ],
+  "mutation_interface": "Conductor.ingest_instruction and Conductor.execute_authorization, each appending one envelope through ConductorAuthority.record_envelope and AuthorityStore.insert",
+  "depends_on": [
+    "cis.blueprint.manifest",
+    "cis.authority.store",
+    "cis.authority.intent",
+    "cis.authority.continuity",
+    "cis.authority.authorization",
+    "cis.authority.runs",
+    "cis.workbench.service"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.execution.port",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process",
+  "failure_boundary": "fail_closed — the operator identity is derived locally and never accepted from a caller, no evidence-import or objective seam is exposed, a refused execution raises before any envelope is written so no successful envelope exists for work that did not run, and an envelope whose hash or cross-links do not recompute is refused by verify",
+  "recovery_behavior": "The envelope is appended last, after the delegated authority rows exist, so an interruption leaves a readable transaction with no envelope rather than an envelope citing authority that is absent",
+  "replacement_contract": "A replacement must remain the only path from Layer 1 to a state change, derive the operator identity locally, envelope held and allowed instructions alike, record no verdict, no verbatim text and no run result of its own, bind content, objective and baseline by recomputable hash with linkage ids to the owning authority rows, and record no envelope when the delegated operation refuses",
+  "evidence_produced": [
+    "exactly one immutable conductor_envelopes row per successful public instruction ingress, linked to its intent transaction, continuity decision and authorization",
+    "exactly one immutable conductor_envelopes row per successful public authorized execution, linked to its authorization and run",
+    "an envelope hash that recomputes from the stored row alone",
+    "a BindingError naming the link that failed whenever an envelope or the authority it cites is tampered with"
+  ],
+  "verification": "python3 -m unittest tests.test_conductor -v"
+}

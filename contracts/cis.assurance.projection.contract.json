@@ -1,0 +1,45 @@
+{
+  "module_id": "cis.assurance.projection",
+  "responsibility": "Derives the read-only assurance progress view, its micro-stage visibility and the reported A-O order reconciliation from authority and the validated manifest.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "task_contracts",
+    "verification_inputs",
+    "verification_results",
+    "review_results",
+    "objection_cycles",
+    "promotion_decisions",
+    "trajectory_events",
+    "blueprint/reconstruction_manifest.json"
+  ],
+  "writes": [],
+  "mutation_interface": "none — a projection is generated from authority and is never read back into it",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.authority.trajectory",
+    "cis.blueprint.manifest",
+    "cis.assurance.task_contract",
+    "cis.assurance.authority"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process, behind read-only GET routes only",
+  "failure_boundary": "fail_closed — it holds no write path at all, it refuses an unknown task contract through the owning ledger rather than inventing an empty state, and it reports the order reconciliation exactly as the validated manifest records it rather than recomputing or softening it",
+  "recovery_behavior": "Fully regenerated on every call from the append-only ledger and the manifest, so a stale view cannot exist and nothing has to be invalidated",
+  "replacement_contract": "A replacement must derive every number it shows from the assurance ledger and the validated manifest, must leave proven_slice's meaning and counts untouched, must keep assurance progress in its own section with its own denominator, must report the order reconciliation without granting a letter the manifest does not grant, and must expose no state-changing operation",
+  "evidence_produced": [
+    "a per-task-contract assurance state, review status, objection cycles used and remaining, and promotion conjunction, each derived and never stored",
+    "the declared state vocabulary, transitions and the three levels at which a fourth objection cycle is impossible",
+    "assurance micro-stage visibility derived from trajectory_events, with an explicit no_matching_stage provenance when a stage has not been reached",
+    "the reported A-O order reconciliation, naming the proven letters, the mandatory outstanding letters and the absence of any waiver"
+  ],
+  "verification": "python3 -m unittest tests.test_assurance -v"
+}
