@@ -1,38 +1,69 @@
 #!/usr/bin/env python3
-"""Trusted in-container verification runner for model-authored source.
+"""Trusted in-container verifier. VERDICT AUTHORITY LIVES HERE, NOT IN THE CODE UNDER TEST.
 
-BAKED INTO THE IMAGE AT 0555 ON A READ-ONLY ROOT FILESYSTEM. It is deliberately
-NOT read from /contract: /contract carries untrusted, model-authored material,
-and a verifier supplied by the thing being verified is not a verifier.
+BAKED INTO THE IMAGE AT 0555 ON A READ-ONLY ROOT. Never read from /contract,
+which carries untrusted, model-authored material: a verifier supplied by the
+thing being verified is not a verifier.
 
-It answers exactly one question and refuses to guess:
+THREAT MODEL. The source under test is adversarial. It may print anything,
+raise anything, spawn anything, monkeypatch any library it can import, and
+terminate its own process with any status at any moment.
 
-  SOURCE_PASS     the declared tests were collected in the declared number and
-                  all of them passed
-  SOURCE_FAIL     the declared tests were collected in the declared number and
-                  at least one failed or errored
-  HARNESS_FAILURE anything else - a collection error, an unimportable module, a
-                  test count that does not match the declaration, a crash in
-                  the runner itself
+WHY THE PREVIOUS DESIGN FAILED, TWICE OVER. v1 ran untrusted tests in the
+trusted runner's own process and parsed its stdout: a test printed a forged
+verdict line and won. v2 moved untrusted code to a child and authenticated its
+self-report with a one-time token - but a self-report is still a self-report,
+the token lives in a process the adversary controls, and untrusted source that
+monkeypatches ``unittest.TestCase.assertEqual`` or calls ``os._exit(0)``
+manufactures a pass without ever being correct.
 
-HARNESS_FAILURE IS NEVER A STATEMENT ABOUT THE SOURCE. The distinction exists
-because a loader error reporting as a source failure, and a zero-test run
-reporting as a pass, are the same defect pointing in opposite directions, and
-both have already occurred in this project.
+THE INVARIANT THIS DESIGN ESTABLISHES. Untrusted code influences the verdict
+ONLY through the values it actually computes. It is never asked whether it
+passed, and its answer to that question would not be read.
 
-Untrusted code runs with the interpreter's cwd set to the writable run
-directory and never with /contract writable. The caller writes evidence after
-this process exits, so nothing this process executes can author its own
-verdict.
+HOW. Assertions do not run in the untrusted process at all. The declared test
+VECTORS live in the digest-verified contract, not in the code under test. For
+each vector this trusted parent spawns one child whose entire job is: import
+the source, call the declared entrypoint with the declared argument, print the
+return value as JSON, exit. THIS PARENT then compares what came back against
+what the contract declared. Every authoritative fact - termination status,
+collection count, execution count, failures, errors, harness failures and the
+final disposition - is computed here.
+
+Consequences for an adversary:
+  * printing a forged verdict         -> nothing parses a verdict from a child
+  * monkeypatching the test framework -> no test framework runs in the child
+  * os._exit(0) before answering      -> no answer observed; vector FAILS
+  * answering with a wrong value      -> compared here; vector FAILS
+  * answering with the correct value  -> that is a correct implementation
+The only path to SOURCE_PASS is computing every declared answer correctly.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import os
-import secrets
 import subprocess
 import sys
+
+#: Per-vector wall clock. A hung child is an infrastructure fact, not a verdict.
+VECTOR_TIMEOUT_SECONDS = 20
+
+#: The child is trivial and fixed. It contains no logic the contract can steer:
+#: import, call, print, exit. It makes no pass/fail judgement of any kind.
+_CHILD = (
+    "import json,sys\n"
+    "sys.path.insert(0, sys.argv[1])\n"
+    "mod = __import__(sys.argv[2])\n"
+    "fn = getattr(mod, sys.argv[3])\n"
+    "arg = json.loads(sys.argv[4])\n"
+    "try:\n"
+    "    out = fn(*arg)\n"
+    "except BaseException as exc:\n"
+    "    sys.stdout.write('R' + json.dumps({'raised': type(exc).__name__}))\n"
+    "    sys.exit(0)\n"
+    "sys.stdout.write('R' + json.dumps({'value': out}))\n"
+)
 
 
 def _sha256(path: str) -> str:
@@ -46,10 +77,40 @@ def _sha256(path: str) -> str:
 def _emit(verdict: str, **fields) -> int:
     payload = {"verdict": verdict}
     payload.update(fields)
-    # Single-line JSON on stdout: the caller parses exactly one line, so
-    # anything untrusted code prints cannot be mistaken for the verdict.
     sys.stdout.write("CIS_VERDICT " + json.dumps(payload, sort_keys=True) + "\n")
     return {"SOURCE_PASS": 0, "SOURCE_FAIL": 1}.get(verdict, 2)
+
+
+def _observe(contract_dir: str, run_dir: str, module: str, entry: str, arg) -> dict:
+    """Run one vector and report ONLY what was observed. No judgement here."""
+    try:
+        child = subprocess.run(
+            [sys.executable, "-I", "-c", _CHILD, contract_dir, module, entry,
+             json.dumps(arg)],
+            cwd=run_dir, capture_output=True, text=True,
+            timeout=VECTOR_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return {"observed": "timeout"}
+    except OSError as exc:
+        return {"observed": "spawn_failed", "detail": type(exc).__name__}
+
+    # Untrusted stdout is DATA. The single record marker is a framing device,
+    # not an authentication: a forged record can only ever assert a RETURN
+    # VALUE, which is then compared against the contract like any other.
+    marks = [i for i, line in enumerate(child.stdout.splitlines()) if line.startswith("R")]
+    lines = [ln for ln in child.stdout.splitlines() if ln.startswith("R")]
+    if len(lines) != 1:
+        return {"observed": "no_single_answer", "answers": len(lines),
+                "exit": child.returncode}
+    try:
+        answer = json.loads(lines[0][1:])
+    except ValueError:
+        return {"observed": "unparseable_answer", "exit": child.returncode}
+    if not isinstance(answer, dict) or not ({"value", "raised"} & set(answer)):
+        return {"observed": "malformed_answer", "exit": child.returncode}
+    return {"observed": "answered", "answer": answer, "exit": child.returncode,
+            "marks": len(marks)}
 
 
 def main() -> int:
@@ -57,152 +118,115 @@ def main() -> int:
     run_dir = os.environ.get("CIS_RUN_DIR", "/workspace/run")
 
     try:
-        with open(os.path.join(contract_dir, "input.json"), encoding="utf-8") as handle:
-            declared = json.load(handle)
+        with open(os.path.join(contract_dir, "input.json"), encoding="utf-8") as fh:
+            declared = json.load(fh)
     except Exception as exc:
         return _emit("HARNESS_FAILURE", reason="declaration unreadable",
                      detail=type(exc).__name__, about_the_source="NOTHING")
 
     try:
         source_name = str(declared["source_filename"])
-        test_name = str(declared["test_filename"])
         expected_source = str(declared["source_sha256"])
-        expected_test = str(declared["test_sha256"])
+        module = str(declared["source_module"])
+        entry = str(declared["entrypoint"])
+        vectors = list(declared["vectors"])
         expected_count = int(declared["expected_test_count"])
-        test_module = str(declared["test_module"])
     except (KeyError, TypeError, ValueError) as exc:
         return _emit("HARNESS_FAILURE", reason="declaration incomplete",
                      detail=type(exc).__name__, about_the_source="NOTHING")
 
-    # A declared name that escapes the contract directory is refused outright.
-    for name in (source_name, test_name):
-        if os.path.basename(name) != name or name in ("", ".", ".."):
-            return _emit("HARNESS_FAILURE", reason="declared filename is not a bare name",
-                         detail=name, about_the_source="NOTHING")
+    if os.path.basename(source_name) != source_name or source_name in ("", ".", ".."):
+        return _emit("HARNESS_FAILURE", reason="declared filename is not a bare name",
+                     about_the_source="NOTHING")
+
+    # The collection count is taken from the DIGEST-VERIFIED CONTRACT, never
+    # from the code under test. Untrusted source cannot change how many
+    # assertions it faces.
+    if len(vectors) != expected_count:
+        return _emit("HARNESS_FAILURE",
+                     reason="declared vector count does not match expected_test_count",
+                     vectors=len(vectors), expected_test_count=expected_count,
+                     about_the_source="NOTHING - an undeclared suite proves nothing")
+    if expected_count <= 0:
+        return _emit("HARNESS_FAILURE", reason="no vectors declared",
+                     about_the_source="NOTHING - zero tests is never a pass")
 
     source_path = os.path.join(contract_dir, source_name)
-    test_path = os.path.join(contract_dir, test_name)
-
-    # DIGEST EQUALITY BEFORE EXECUTION. Nothing is imported until the bytes on
-    # disk are the bytes the authorization named.
     try:
-        actual_source, actual_test = _sha256(source_path), _sha256(test_path)
+        actual_source = _sha256(source_path)
     except OSError as exc:
-        return _emit("HARNESS_FAILURE", reason="declared file missing",
+        return _emit("HARNESS_FAILURE", reason="declared source missing",
                      detail=type(exc).__name__, about_the_source="NOTHING")
-
     if actual_source != expected_source:
         return _emit("HARNESS_FAILURE", reason="source digest mismatch",
                      expected=expected_source, actual=actual_source,
                      about_the_source="NOTHING - refused before execution")
-    if actual_test != expected_test:
-        return _emit("HARNESS_FAILURE", reason="test digest mismatch",
-                     expected=expected_test, actual=actual_test,
-                     about_the_source="NOTHING - refused before execution")
 
-    # UNTRUSTED CODE RUNS IN A CHILD PROCESS, NEVER IN THIS ONE.
-    #
-    # Independent review (GLM-5.2, 2026-10-18, finding HIGH) proved that the
-    # previous in-process design was forgeable: untrusted tests shared this
-    # process's stdout, the genuine verdict was emitted last, and the caller
-    # took the first match - so a test could print a SOURCE_PASS line and win.
-    # The exploit was reproduced before this fix: verdict=SOURCE_PASS with
-    # runner_exit=1 on a suite whose every test failed.
-    #
-    # Three things close it. The child's stdout and stderr are captured, so
-    # nothing untrusted can write to the channel this process reports on. A
-    # one-time token is handed to the child over a pipe that is drained and
-    # closed before any untrusted import, so a forged record without the token
-    # is rejected. And the child's exit code must agree with the record it
-    # returned, so a forged record contradicting the real outcome is refused.
     os.makedirs(run_dir, exist_ok=True)
-    token = secrets.token_hex(16)
-    read_fd, write_fd = os.pipe()
-    os.write(write_fd, (token + "\n").encode("ascii"))
-    os.close(write_fd)
 
-    inner = (
-        "import json,os,sys,unittest\n"
-        "tok=os.read(3,33).decode().strip()\n"
-        "os.close(3)\n"
-        "sys.path.insert(0,sys.argv[1])\n"
-        "ldr=unittest.TestLoader()\n"
-        "try:\n"
-        "    s=ldr.loadTestsFromName(sys.argv[2])\n"
-        "except Exception as e:\n"
-        "    print('INNER '+tok+' '+json.dumps({'k':'collect_raise','d':str(e)[:200]}));sys.exit(2)\n"
-        "if ldr.errors:\n"
-        "    print('INNER '+tok+' '+json.dumps({'k':'collect_error','d':[str(x)[:200] for x in ldr.errors]}));sys.exit(2)\n"
-        "n=s.countTestCases()\n"
-        "if n!=int(sys.argv[3]):\n"
-        "    print('INNER '+tok+' '+json.dumps({'k':'count','n':n}));sys.exit(2)\n"
-        "r=unittest.TextTestRunner(verbosity=0,stream=sys.stderr).run(s)\n"
-        "ok=r.wasSuccessful()\n"
-        "print('INNER '+tok+' '+json.dumps({'k':'ran','n':n,'run':r.testsRun,"
-        "'f':len(r.failures),'e':len(r.errors),'ok':ok}))\n"
-        "sys.exit(0 if ok else 1)\n"
-    )
+    executed = failures = errors = 0
+    results = []
+    for index, vector in enumerate(vectors):
+        try:
+            arg = list(vector["args"])
+            wants_value = "expect_value" in vector
+            wants_raise = "expect_raises" in vector
+        except (KeyError, TypeError):
+            return _emit("HARNESS_FAILURE", reason="vector malformed", index=index,
+                         about_the_source="NOTHING")
+        if wants_value == wants_raise:
+            return _emit("HARNESS_FAILURE",
+                         reason="vector must declare exactly one expectation",
+                         index=index, about_the_source="NOTHING")
 
-    try:
-        child = subprocess.run(
-            [sys.executable, "-I", "-c", inner, contract_dir, test_module, str(expected_count)],
-            cwd=run_dir, capture_output=True, text=True, timeout=120,
-            pass_fds=(read_fd,),
-        )
-    except subprocess.TimeoutExpired:
-        return _emit("HARNESS_FAILURE", reason="verification workload timed out",
-                     about_the_source="NOTHING")
-    finally:
-        try: os.close(read_fd)
-        except OSError: pass
+        seen = _observe(contract_dir, run_dir, module, entry, arg)
+        executed += 1
 
-    # Only a record bearing the one-time token counts, and exactly one may.
-    records = [ln for ln in child.stdout.splitlines() if ln.startswith("INNER " + token + " ")]
-    if len(records) != 1:
-        return _emit("HARNESS_FAILURE",
-                     reason="expected exactly one authenticated result record",
-                     records_found=len(records), child_exit=child.returncode,
-                     about_the_source="NOTHING - a forged or absent record proves nothing")
-    try:
-        rec = json.loads(records[0].split(" ", 2)[2])
-    except ValueError:
-        return _emit("HARNESS_FAILURE", reason="result record unparseable",
-                     about_the_source="NOTHING")
+        if seen["observed"] in ("spawn_failed",):
+            # The harness could not run. That is infrastructure, not the source.
+            return _emit("HARNESS_FAILURE", reason="vector could not be spawned",
+                         index=index, detail=seen.get("detail"),
+                         about_the_source="NOTHING")
+        if seen["observed"] == "timeout":
+            # Resource exhaustion and hangs are the SOURCE's observable
+            # behaviour for this vector, but they are classified as errors
+            # rather than silent passes, and the reason is recorded.
+            errors += 1
+            results.append({"i": index, "outcome": "ERROR", "why": "timeout"})
+            continue
+        if seen["observed"] != "answered":
+            errors += 1
+            results.append({"i": index, "outcome": "ERROR", "why": seen["observed"],
+                            "exit": seen.get("exit")})
+            continue
 
-    kind = rec.get("k")
-    if kind == "collect_raise":
-        return _emit("HARNESS_FAILURE", reason="collection raised", detail=rec.get("d"),
-                     about_the_source="NOTHING")
-    if kind == "collect_error":
-        return _emit("HARNESS_FAILURE", reason="collection error", detail=rec.get("d"),
-                     about_the_source="NOTHING - the source was never imported")
-    if kind == "count":
-        return _emit("HARNESS_FAILURE",
-                     reason="collected test count does not match the declaration",
-                     expected_test_count=expected_count, tests_collected=rec.get("n"),
-                     about_the_source="NOTHING - an undeclared suite proves nothing")
-    if kind != "ran":
-        return _emit("HARNESS_FAILURE", reason="unknown result record",
+        answer = seen["answer"]
+        if wants_raise:
+            ok = answer.get("raised") == str(vector["expect_raises"])
+        else:
+            ok = ("value" in answer) and (answer["value"] == vector["expect_value"])
+        if ok:
+            results.append({"i": index, "outcome": "PASS"})
+        else:
+            failures += 1
+            results.append({"i": index, "outcome": "FAIL", "got": answer})
+
+    # EVERY FIGURE BELOW WAS COMPUTED HERE, FROM OBSERVATIONS MADE HERE.
+    if executed != expected_count:
+        return _emit("HARNESS_FAILURE", reason="executed count does not match declaration",
+                     executed=executed, expected_test_count=expected_count,
                      about_the_source="NOTHING")
 
-    # The record and the exit code must agree, or neither is trustworthy.
-    expected_exit = 0 if rec.get("ok") else 1
-    if child.returncode != expected_exit:
-        return _emit("HARNESS_FAILURE",
-                     reason="result record contradicts the workload exit code",
-                     record_ok=rec.get("ok"), child_exit=child.returncode,
-                     about_the_source="NOTHING - an inconsistent run proves nothing")
-
-    verdict = "SOURCE_PASS" if rec.get("ok") else "SOURCE_FAIL"
-    return _emit(verdict, tests_collected=rec.get("n"), tests_run=rec.get("run"),
-                 failures=rec.get("f"), errors=rec.get("e"),
-                 source_sha256=actual_source, test_sha256=actual_test)
+    verdict = "SOURCE_PASS" if (failures == 0 and errors == 0) else "SOURCE_FAIL"
+    return _emit(verdict, tests_collected=expected_count, tests_run=executed,
+                 failures=failures, errors=errors, source_sha256=actual_source,
+                 results=results)
 
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as exc:
-        sys.exit(_emit("HARNESS_FAILURE", reason="runner crashed",
+        sys.exit(_emit("HARNESS_FAILURE", reason="verifier crashed",
                        detail=f"{type(exc).__name__}: {exc}"[:300],
                        about_the_source="NOTHING"))

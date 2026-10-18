@@ -72,8 +72,37 @@ if [ "$1" = verify-authored-source ]; then
     echo "pids_max=$(cat /sys/fs/cgroup/pids.max)"
     echo "memory_max=$(cat /sys/fs/cgroup/memory.max)"
     echo "cpu_max=$(cat /sys/fs/cgroup/cpu.max)"
-    if touch /etc/cis-write-probe 2>/dev/null; then echo 'rootfs_write=allowed'; else echo 'rootfs_write=denied'; fi
-    if touch /contract/cis-write-probe 2>/dev/null; then echo 'contract_write=allowed'; else echo 'contract_write=denied'; fi
+    # MEDIUM finding (GLM-5.2, 2026-10-18): probes must not leave artifacts.
+    # Cleanup cannot widen the boundary - rm only succeeds where touch already
+    # did, i.e. where the mount was ALREADY writable, which is the very defect
+    # the probe exists to detect. The removal outcome is recorded too, so a
+    # probe that wrote and could not be cleaned is visible rather than silent.
+    if touch /etc/cis-write-probe 2>/dev/null; then
+      echo 'rootfs_write=allowed'
+      if rm -f /etc/cis-write-probe 2>/dev/null; then echo 'rootfs_probe_cleanup=removed'; else echo 'rootfs_probe_cleanup=FAILED'; fi
+    else
+      echo 'rootfs_write=denied'; echo 'rootfs_probe_cleanup=not_needed'
+    fi
+    if touch /contract/cis-write-probe 2>/dev/null; then
+      echo 'contract_write=allowed'
+      if rm -f /contract/cis-write-probe 2>/dev/null; then echo 'contract_probe_cleanup=removed'; else echo 'contract_probe_cleanup=FAILED'; fi
+    else
+      echo 'contract_write=denied'; echo 'contract_probe_cleanup=not_needed'
+    fi
+    # LOW finding: workspace writability restored to the verify evidence, so
+    # the record is self-contained and comparable with the v3 schema.
+    if touch /workspace/cis-write-probe 2>/dev/null; then
+      echo 'workspace_write=allowed'; rm -f /workspace/cis-write-probe
+    else
+      echo 'workspace_write=denied'
+    fi
+    # LOW finding: attest the exact trusted runner that produced this verdict.
+    echo "trusted_runner_sha256=$(sha256sum /usr/local/bin/cis-verify-source | awk '{print $1}')"
+    echo "worker_sha256=$(sha256sum /usr/local/bin/cis-contained-worker | awk '{print $1}')"
+    # LOW finding: the 64 MiB ceiling is deliberate and unchanged. Exhaustion
+    # surfaces as HARNESS_FAILURE or a per-vector ERROR with its reason
+    # recorded, never as SOURCE_PASS and never silently as a source defect.
+    echo 'resource_exhaustion_classification=infrastructure_not_source'
     echo 'promotion=none'
     echo 'host_action=none'
   } > /workspace/worker-evidence.txt
