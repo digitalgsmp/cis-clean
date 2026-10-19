@@ -28,7 +28,7 @@ refuses to open a database under that path at all, and every ALLOW carries
 ```sh
 cd /mnt/projects/cis-clean
 
-# validate the blueprint and all 29 module contracts, print the derived order
+# validate the blueprint and all 30 module contracts, print the derived order
 PYTHONPATH=src python3 -m cis verify
 
 # run the whole slice end to end, in memory, offline
@@ -92,7 +92,7 @@ identity seam that does not exist in this slice.
 ```
 blueprint/reconstruction_manifest.json   operational input: stages, selected modules,
                                          reconstruction status, evidence basis
-contracts/*.contract.json                29 module contracts, exactly 16 fields each
+contracts/*.contract.json                30 module contracts, exactly 16 fields each
 src/cis/contracts/                       registry + field-level validator
 src/cis/blueprint/                       manifest loader; baseline hash
 src/cis/authority/                       clean SQLite authority + 8 migrations

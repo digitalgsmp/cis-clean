@@ -27,11 +27,11 @@ class MacroProjectionTests(unittest.TestCase):
 
     def test_macro_exposes_selected_module_progress_in_dependency_order(self):
         macro = self.wb.projection.macro()
-        self.assertEqual(len(macro["modules"]), 29)
+        self.assertEqual(len(macro["modules"]), support.expected_module_count())
         positions = [m["dependency_position"] for m in macro["modules"]]
         self.assertEqual(positions, sorted(positions))
-        self.assertEqual(macro["counts"]["selected"], 29)
-        self.assertEqual(macro["counts"]["contracted"], 29)
+        self.assertEqual(macro["counts"]["selected"], support.expected_module_count())
+        self.assertEqual(macro["counts"]["contracted"], support.expected_module_count())
         self.assertEqual(macro["counts"]["executed"], 0)
 
     def test_progress_advances_from_contracted_to_authorized_to_executed(self):
@@ -204,7 +204,7 @@ class AppendOnlyProjectionTests(unittest.TestCase):
         macro_events = wb.trajectory.events(scope="macro")
         self.assertEqual(len(macro_events), 1)
         detail = json.loads(str(macro_events[0]["detail_json"]))
-        self.assertEqual(detail["selected_module_count"], 29)
+        self.assertEqual(detail["selected_module_count"], support.expected_module_count())
 
     def test_the_projection_is_regenerated_and_never_written_back(self):
         wb, outcome = support.allow_outcome()

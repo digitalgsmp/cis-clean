@@ -1,0 +1,38 @@
+{
+  "module_id": "cis.execution.adapters.contained_worker",
+  "responsibility": "Executes one declared verification of model-authored source in the sealed nonroot contained worker and returns the result through the Layer-2 execution port.",
+  "layer": "L3",
+  "owned_authority": [],
+  "reads": [
+    "the token-covered ExecutionRequest supplied through cis.execution.port",
+    "the worker evidence file the sealed container writes to its own workspace"
+  ],
+  "writes": [],
+  "mutation_interface": "none",
+  "depends_on": [
+    "cis.execution.port"
+  ],
+  "forbidden_dependencies": [
+    "cis.authority.store",
+    "cis.authority.evidence",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion",
+    "cis.execution.gateway",
+    "cis.interface.api"
+  ],
+  "trust_domain": "untrusted_execution",
+  "execution_location": "host container runtime, invoking a sealed nonroot image",
+  "failure_boundary": "fail_closed - an unverified token, an undeclared operation, an empty allowed scope, an absent source, absent vectors or an absent entrypoint refuses before any container starts, and a worker that produces no evidence is reported as HARNESS_FAILURE rather than as any statement about the source",
+  "recovery_behavior": "Each dispatch is independent and writes no authority: a private temporary contract and workspace directory is created and removed on every path including failure, the container runs with --rm, and recovery is a fresh authorization rather than a retry of a spent one. A container timeout is reported as RESOURCE_EXHAUSTION infrastructure rather than as a source verdict",
+  "replacement_contract": "A replacement must accept the same ExecutionRequest, preserve the worker's six-argument frozen invocation, apply the same closed verdict mapping in which only SOURCE_PASS yields status completed with exit code zero, write no evidence of its own, and leave backend_runs and evidence_records recording entirely to cis.execution.gateway",
+  "evidence_produced": [
+    "verdict and classification naming SOURCE_PASS, SOURCE_FAIL, HARNESS_FAILURE or RESOURCE_EXHAUSTION",
+    "source_sha256 of the exact model-authored artifact executed",
+    "vector_contract_sha256 of the exact declared test-vector contract",
+    "task_contract_bundle_sha256 and authorization_binding_hash binding the run to its authorization",
+    "trusted_runner_sha256 and worker_sha256 attesting the exact bytes that produced the verdict",
+    "worker_exit and declared_vectors"
+  ],
+  "verification": "PYTHONPATH=src python3 -m unittest tests.test_contained_worker_adapter -v"
+}

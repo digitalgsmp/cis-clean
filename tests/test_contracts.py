@@ -22,7 +22,7 @@ class RealRegistryTests(unittest.TestCase):
             self.assertEqual(len(document), 16, module_id)
 
     def test_every_contract_validates(self):
-        self.assertEqual(len(self.registry.contracts), 29)
+        self.assertEqual(len(self.registry.contracts), support.expected_module_count())
 
     def test_one_owner_per_authority(self):
         owners = self.registry.authority_owners()
@@ -54,7 +54,15 @@ class RealRegistryTests(unittest.TestCase):
 
     def test_l3_contains_only_declared_replaceable_backend_adapters(self):
         by_layer = self.registry.by_layer()
+        # The property under test is that L3 holds ONLY declared replaceable
+        # backend adapters - not that there are exactly two of them forever.
+        # ADR-ARCH-001's own acceptance criteria anticipate "a second backend
+        # adapter is added with no change above the Layer-2 port", so a
+        # properly declared addition preserves this invariant rather than
+        # weakening it. cis.execution.adapters.contained_worker is declared in
+        # contracts/ and selected in the blueprint (4.37 revision 31).
         self.assertEqual(by_layer["L3"], [
+            "cis.execution.adapters.contained_worker",
             "cis.execution.adapters.deterministic_mock",
             "cis.worker.contained_nonroot",
         ])

@@ -50,6 +50,19 @@ OBJECTIVE = (
 )
 
 
+def expected_module_count() -> int:
+    """The selected-module count, DERIVED from the authoritative manifest.
+
+    ADR-ARCH-002: record once, derive everywhere. A literal here would be a
+    second record of a fact the blueprint already owns, and every addition
+    would require editing it in nine places.
+    """
+    import json
+    path = Path(__file__).resolve().parents[1] / "blueprint" / "reconstruction_manifest.json"
+    with open(path, encoding="utf-8") as handle:
+        return len(json.load(handle)["selected_modules"])
+
+
 def blueprint():
     return load_blueprint(MANIFEST_PATH, CONTRACTS_DIR)
 

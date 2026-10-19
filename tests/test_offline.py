@@ -82,7 +82,7 @@ class OfflineExecutionTests(unittest.TestCase):
 
     def test_the_blueprint_and_contracts_load_with_networking_disabled(self):
         blueprint = support.blueprint()
-        self.assertEqual(len(blueprint.registry.contracts), 29)
+        self.assertEqual(len(blueprint.registry.contracts), support.expected_module_count())
         self.assertEqual(self.trap.attempts, [])
 
 

@@ -30,7 +30,7 @@ class ApiTests(unittest.TestCase):
 
     def test_blueprint_returns_the_manifest_with_a_derived_dependency_order(self):
         body = self.get("/blueprint").body["blueprint"]
-        self.assertEqual(len(body["selected_modules"]), 29)
+        self.assertEqual(len(body["selected_modules"]), support.expected_module_count())
         self.assertEqual(body["dependency_order"],
                          self.wb.blueprint.registry.dependency_order())
         self.assertEqual(body["dependency_order_derivation"]["representation"],
@@ -39,7 +39,7 @@ class ApiTests(unittest.TestCase):
 
     def test_contracts_returns_all_sixteen_fields_per_module(self):
         body = self.get("/contracts").body
-        self.assertEqual(len(body["contracts"]), 29)
+        self.assertEqual(len(body["contracts"]), support.expected_module_count())
         for module_id, contract in body["contracts"].items():
             self.assertEqual(len(contract), 16, module_id)
         self.assertEqual(len(body["authority_owners"]), 21)

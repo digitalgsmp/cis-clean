@@ -45,9 +45,15 @@ import json
 import os
 import subprocess
 import sys
+import time
 
 #: Per-vector wall clock. A hung child is an infrastructure fact, not a verdict.
 VECTOR_TIMEOUT_SECONDS = 20
+
+#: TOTAL wall clock across all vectors. Per-vector limits alone allow 16 x 20s;
+#: this bounds the whole run so a slow source cannot occupy the worker.
+#: Exceeding it is INFRASTRUCTURE, never a source verdict.
+TOTAL_BUDGET_SECONDS = 120
 
 #: The child is trivial and fixed. It contains no logic the contract can steer:
 #: import, call, print, exit. It makes no pass/fail judgement of any kind.
@@ -166,7 +172,13 @@ def main() -> int:
 
     executed = failures = errors = 0
     results = []
+    started = time.monotonic()
     for index, vector in enumerate(vectors):
+        if time.monotonic() - started > TOTAL_BUDGET_SECONDS:
+            return _emit("HARNESS_FAILURE", reason="total wall-clock budget exceeded",
+                         classification="RESOURCE_EXHAUSTION", vectors_completed=index,
+                         total_budget_seconds=TOTAL_BUDGET_SECONDS,
+                         about_the_source="NOTHING - the run was cut short")
         try:
             arg = list(vector["args"])
             wants_value = "expect_value" in vector
@@ -188,17 +200,21 @@ def main() -> int:
                          index=index, detail=seen.get("detail"),
                          about_the_source="NOTHING")
         if seen["observed"] == "timeout":
-            # Resource exhaustion and hangs are the SOURCE's observable
-            # behaviour for this vector, but they are classified as errors
-            # rather than silent passes, and the reason is recorded.
-            errors += 1
-            results.append({"i": index, "outcome": "ERROR", "why": "timeout"})
-            continue
+            # A TIMEOUT IS AN INFRASTRUCTURE FAILURE, NOT A SOURCE VERDICT, and
+            # it is never both. The apparatus did not establish a reliable
+            # answer for this vector, so no claim about the source is made.
+            return _emit("HARNESS_FAILURE", reason="vector timed out",
+                         classification="RESOURCE_EXHAUSTION", index=index,
+                         per_vector_timeout_seconds=VECTOR_TIMEOUT_SECONDS,
+                         about_the_source="NOTHING - no reliable verdict was established")
         if seen["observed"] != "answered":
-            errors += 1
-            results.append({"i": index, "outcome": "ERROR", "why": seen["observed"],
-                            "exit": seen.get("exit")})
-            continue
+            # No single parseable answer means the apparatus did not establish
+            # a verdict for this vector. That is a harness fact, not a source
+            # fact, and it must not be reported as either a pass or a failure.
+            return _emit("HARNESS_FAILURE", reason="no reliable answer observed",
+                         classification="HARNESS_FAILURE", index=index,
+                         observed=seen["observed"], child_exit=seen.get("exit"),
+                         about_the_source="NOTHING - no reliable verdict was established")
 
         answer = seen["answer"]
         if wants_raise:
@@ -217,7 +233,7 @@ def main() -> int:
                      executed=executed, expected_test_count=expected_count,
                      about_the_source="NOTHING")
 
-    verdict = "SOURCE_PASS" if (failures == 0 and errors == 0) else "SOURCE_FAIL"
+    verdict = "SOURCE_PASS" if failures == 0 else "SOURCE_FAIL"
     return _emit(verdict, tests_collected=expected_count, tests_run=executed,
                  failures=failures, errors=errors, source_sha256=actual_source,
                  results=results)

@@ -44,7 +44,7 @@ class BlueprintTests(unittest.TestCase):
         equality with a single slice: a slice-1 module's recorded status must
         never change because slice 2 happened.
         """
-        self.assertEqual(len(self.blueprint.selected_module_ids), 29)
+        self.assertEqual(len(self.blueprint.selected_module_ids), support.expected_module_count())
         for module_id in self.blueprint.selected_module_ids:
             self.assertIn(self.blueprint.reconstruction_status(module_id),
                           IN_SCOPE_RECONSTRUCTION_STATUSES)

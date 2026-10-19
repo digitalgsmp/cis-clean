@@ -1,694 +1,950 @@
 {
-  "schema_version": "1.0.0",
-  "blueprint_id": "CIS-RECONSTRUCTION-SLICE-001",
-  "title": "Clean-room CIS reconstruction — vertical slice 1: intent to governed execution",
-  "clean_environment": "/mnt/projects/cis-clean",
-  "reference_environment": {
-    "path": "/mnt/projects/cis",
-    "role": "READ-ONLY EVIDENCE",
-    "rule": "Never modified, generated into, migrated, restarted or deployed by this blueprint. A component left behind there is not automatically obsolete; a component copied here would not be automatically legitimate (handoff A26)."
-  },
-
-  "dependency_order": {
-    "representation": "DERIVED",
-    "authority": "contracts/*.contract.json :: depends_on",
-    "derivation": "cis.contracts.registry.ContractRegistry.dependency_order() — deterministic topological sort, dependencies before dependents",
-    "why_not_listed_here": "A literal order list in this file would be a second writable record of a fact that the contracts already own (ADR-ARCH-002). The manifest identifies the order by naming its single authority and the deterministic derivation over it."
-  },
-
-  "macro": {
-    "sequence_authority": "docs/review_packets/CIS-ARCH-RECONSTRUCTION-PHASE-HANDOFF-2026-10-07/INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23",
-    "current_stage": "STEP_7_RESUME_PIPELINE_BUILD",
-    "stages": [
-      {
-        "stage_id": "STEP_1_PRESERVE_HANDOFF",
-        "label": "Preserve the architecture reconstruction handoff durably",
-        "plain_language": "Write down everything we had learned about the architecture, so that losing a session could never lose it.",
-        "status": "COMPLETE",
-        "evidence_basis": [
-          "docs/review_packets/CIS-ARCH-RECONSTRUCTION-PHASE-HANDOFF-2026-10-07/README.md",
-          "docs/review_packets/CIS-ARCH-RECONSTRUCTION-PHASE-HANDOFF-2026-10-07/SOURCE_EVIDENCE_MAP.md"
-        ]
-      },
-      {
-        "stage_id": "STEP_2_REMEDIATE_REVISION_127",
-        "label": "Close the live public trust-boundary exposure",
-        "plain_language": "Close the hole that let the outside world reach something that was meant to stay private.",
-        "status": "COMPLETE",
-        "evidence_basis": [
-          "project_state:next_action (live) — revision 127 RESOLVED AND ACCEPTED, remediation no longer next",
-          "dev_continuity_events:WB.1:174 — reconciliation against revision 127, status resolved"
-        ]
-      },
-      {
-        "stage_id": "STEP_3_REMOVE_ERIC_FROM_KB_INGESTION",
-        "label": "Automatic session-end ingestion and a closeout coverage gate",
-        "plain_language": "Stop depending on a person remembering to file what a working session learned.",
-        "status": "COMPLETE",
-        "evidence_basis": [
-          "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: D1 (IMPLEMENTED)",
-          "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: D2 (IMPLEMENTED)"
-        ]
-      },
-      {
-        "stage_id": "STEP_4_ARCHITECTURE_FREEZE",
-        "label": "Freeze the minimum architecture required before reconstruction",
-        "plain_language": "Agree the few rules the rebuild has to obey, before rebuilding anything under them.",
-        "status": "COMPLETE",
-        "evidence_basis": [
-          "project_decisions:ADR-ARCH-001 (2026-10-13) — module contract, planes as properties, Hermes replacement boundary",
-          "project_decisions:ADR-ARCH-002 (2026-10-13) — record once, derive everywhere",
-          "project_decisions:ADR-ARCH-003 (2026-10-13) — minimum execution-backend replacement boundary",
-          "project_decisions:ADR-ARCH-004 (2026-10-13) — human intent, canonical authority, cards as projections",
-          "project_decisions:ADR-SEED-018 — L1/L2/L3 layer ownership",
-          "project_decisions:ADR-SEED-015 — enforcement/trust domains"
-        ]
-      },
-      {
-        "stage_id": "STEP_5_CLEAN_MODULAR_RECONSTRUCTION",
-        "label": "Build the clean environment from positively identified modules and contracts",
-        "plain_language": "Rebuild CIS in a clean space, one named part at a time, each part carrying its own written promise.",
-        "status": "COMPLETE",
-        "evidence_basis": [
-          "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23 STEP 5, A26 clean-room principle",
-          "dev_continuity_events:WB.1:178 — continuity acceptance criterion (questions and fragments must recover prior intent, not silently redirect)"
-        ]
-      },
-      {
-        "stage_id": "STEP_6_PROVE_THE_BOUNDARIES",
-        "label": "Prove single-owner authority, sanctioned mutation, regeneration, replaceability",
-        "plain_language": "Show with tests, rather than claim in prose, that those promises actually hold when something goes wrong.",
-        "status": "COMPLETE",
-        "evidence_basis": [
-          "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23 STEP 6",
-          "tests/ in this environment — the boundary proofs this slice carries",
-          "runtime/worker-proof/final-proof.json — real Docker A-O proof"
-        ]
-      },
-      {
-        "stage_id": "STEP_7_RESUME_PIPELINE_BUILD",
-        "label": "Return to forward pipeline / WIASW development",
-        "plain_language": "Go back to building what CIS is for, now standing on a foundation that holds.",
-        "status": "ACTIVE",
-        "evidence_basis": [
-          "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23 STEP 7"
-        ]
-      }
+ "schema_version": "1.0.0",
+ "blueprint_id": "CIS-RECONSTRUCTION-SLICE-001",
+ "title": "Clean-room CIS reconstruction \u2014 vertical slice 1: intent to governed execution",
+ "clean_environment": "/mnt/projects/cis-clean",
+ "reference_environment": {
+  "path": "/mnt/projects/cis",
+  "role": "READ-ONLY EVIDENCE",
+  "rule": "Never modified, generated into, migrated, restarted or deployed by this blueprint. A component left behind there is not automatically obsolete; a component copied here would not be automatically legitimate (handoff A26)."
+ },
+ "dependency_order": {
+  "representation": "DERIVED",
+  "authority": "contracts/*.contract.json :: depends_on",
+  "derivation": "cis.contracts.registry.ContractRegistry.dependency_order() \u2014 deterministic topological sort, dependencies before dependents",
+  "why_not_listed_here": "A literal order list in this file would be a second writable record of a fact that the contracts already own (ADR-ARCH-002). The manifest identifies the order by naming its single authority and the deterministic derivation over it."
+ },
+ "macro": {
+  "sequence_authority": "docs/review_packets/CIS-ARCH-RECONSTRUCTION-PHASE-HANDOFF-2026-10-07/INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23",
+  "current_stage": "STEP_7_RESUME_PIPELINE_BUILD",
+  "stages": [
+   {
+    "stage_id": "STEP_1_PRESERVE_HANDOFF",
+    "label": "Preserve the architecture reconstruction handoff durably",
+    "plain_language": "Write down everything we had learned about the architecture, so that losing a session could never lose it.",
+    "status": "COMPLETE",
+    "evidence_basis": [
+     "docs/review_packets/CIS-ARCH-RECONSTRUCTION-PHASE-HANDOFF-2026-10-07/README.md",
+     "docs/review_packets/CIS-ARCH-RECONSTRUCTION-PHASE-HANDOFF-2026-10-07/SOURCE_EVIDENCE_MAP.md"
     ]
-  },
-
-  "destination": {
-    "comment": "What CIS is becoming, written for the person it is being built for. The flow below is the destination in order; each step names the preserved capabilities that carry it, so the page that shows this cannot claim a step is covered unless a capability in this manifest covers it (handoff A24, ADR-ARCH-002).",
-    "statement": "CIS is becoming the place where a person's changing idea turns into work a machine does under written permission: nothing said is lost, nothing runs unbounded, nothing is called finished without proof, and the person can see the whole of it in their own words and correct it.",
-    "authority": [
-      "project_decisions:ADR-ARCH-004 — human intent, canonical authority, cards as projections (ROLES 1-6)",
-      "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A2 conceptual chain",
-      "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A24 capabilities that must survive reconstruction"
-    ],
-    "flow": [
-      {
-        "step_id": "AN_EVOLVING_USER_IDEA",
-        "plain_language": "A person says what they want, in their own words, and keeps changing their mind as they learn.",
-        "question_it_answers": "Is this still my intent after CIS has read it?",
-        "capabilities": ["immutable_human_intent"]
-      },
-      {
-        "step_id": "REMEMBERED_INTENT_AND_CURRENT_KNOWLEDGE",
-        "plain_language": "CIS remembers what was already said and what is already known, so a question does not restart the conversation or quietly change its direction.",
-        "question_it_answers": "Does what we agreed earlier still count today?",
-        "capabilities": ["authority_history_distinction", "recovery_cold_start"]
-      },
-      {
-        "step_id": "AN_EXECUTABLE_PLAN",
-        "plain_language": "The idea becomes a plan with edges: exactly what may be touched, what may never be touched, and when to stop.",
-        "question_it_answers": "What precisely is about to be done, and what is forbidden while doing it?",
-        "capabilities": ["constrained_task_execution", "deterministic_policy_enforcement"]
-      },
-      {
-        "step_id": "BOUNDED_AI_WORK",
-        "plain_language": "A machine does the work inside those edges, and whichever machine it is can be swapped for another without rewriting the plan or anything above it.",
-        "question_it_answers": "Who did the work, and could they be replaced tomorrow?",
-        "capabilities": ["execution_backend_replaceability", "fail_closed_behaviour"]
-      },
-      {
-        "step_id": "INDEPENDENT_PROOF",
-        "plain_language": "Nothing counts as done on the worker's own word: proof is recorded with the result, and someone other than the author checks it.",
-        "question_it_answers": "Why should anyone believe this is actually finished?",
-        "capabilities": ["evidence_before_completion_claims", "author_is_not_verifier"]
-      },
-      {
-        "step_id": "VISIBLE_RECURSIVE_REFINEMENT",
-        "plain_language": "The person can see the whole state at any moment, correct it, and watch the correction travel into the next round of work.",
-        "question_it_answers": "Can I see where we are, and change it?",
-        "capabilities": ["generated_projections", "workbench_architecture_visibility"]
-      }
+   },
+   {
+    "stage_id": "STEP_2_REMEDIATE_REVISION_127",
+    "label": "Close the live public trust-boundary exposure",
+    "plain_language": "Close the hole that let the outside world reach something that was meant to stay private.",
+    "status": "COMPLETE",
+    "evidence_basis": [
+     "project_state:next_action (live) \u2014 revision 127 RESOLVED AND ACCEPTED, remediation no longer next",
+     "dev_continuity_events:WB.1:174 \u2014 reconciliation against revision 127, status resolved"
     ]
-  },
-
-  "slice": {
-    "slice_id": "SLICE-001",
-    "objective": "Convert one human instruction into a bounded ALLOW or HOLD authorization and, when ALLOW, one governed backend run with evidence and a derived trajectory.",
-    "in_scope": [
-      "machine-readable reconstruction blueprint as operational input",
-      "module-contract registry and 16-field validator",
-      "clean append-only SQLite authority with migrations",
-      "Workbench application service with verbatim preservation and continuity",
-      "exact binding across instruction, decision, authorization, scope, baseline",
-      "continuity antecedents and the execution-authorization basis as two separate concerns",
-      "CIS-owned Layer-2 execution port with one deterministic backend adapter",
-      "append-only trajectory projection with a derived you-are-here marker",
-      "Workbench-facing JSON interface over the whole slice"
-    ],
-    "out_of_scope": [
-      "any multi-backend contract schema, capability negotiation, streaming, cost accounting or error taxonomy (ADR-ARCH-003 defers these)",
-      "any adapter for a named external harness",
-      "test H2 — whether a different execution harness satisfies the contract",
-      "migration of reference-environment data into this environment",
-      "network, model or LLM calls of any kind"
+   },
+   {
+    "stage_id": "STEP_3_REMOVE_ERIC_FROM_KB_INGESTION",
+    "label": "Automatic session-end ingestion and a closeout coverage gate",
+    "plain_language": "Stop depending on a person remembering to file what a working session learned.",
+    "status": "COMPLETE",
+    "evidence_basis": [
+     "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: D1 (IMPLEMENTED)",
+     "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: D2 (IMPLEMENTED)"
     ]
-  },
-
-  "proven_slice": {
-    "comment": "The one path this slice has actually driven end to end. Each link names the trajectory stage that records it, so whether a link is proven is read from trajectory_events and is never written down here. carried_by names selected modules; a reader wanting the three planes reads them as fields of those modules' own contracts (ADR-ARCH-001 clause 2).",
-    "links": [
-      {
-        "link_id": "THE_WORKBENCH_TAKES_YOUR_WORDS",
-        "plain_language": "You say it once, in your own words, and those exact words are kept as the source — the reading CIS makes of them is stored beside them and never on top of them.",
-        "trajectory_stage": "HUMAN_INTENT",
-        "carried_by": ["cis.workbench.service", "cis.authority.intent"]
-      },
-      {
-        "link_id": "CONTINUITY_KEEPS_THE_THREAD",
-        "plain_language": "A question or a half-remembered fragment brings back what was already said instead of sending the work somewhere new; only an explicit redirection changes direction.",
-        "trajectory_stage": "CONTINUITY",
-        "carried_by": ["cis.continuity.classifier", "cis.continuity.retrieval", "cis.authority.continuity"]
-      },
-      {
-        "link_id": "AUTHORIZATION_BOUNDS_THE_WORK",
-        "plain_language": "Before anything runs, CIS writes down what may be done, what is forbidden, what counts as proof and when to stop — and refuses by default when it cannot.",
-        "trajectory_stage": "REVIEW_AUTHORIZATION",
-        "carried_by": ["cis.authority.authorization"]
-      },
-      {
-        "link_id": "A_REPLACEABLE_WORKER_DOES_IT",
-        "plain_language": "The work goes out through one door to a worker CIS owns the contract for, so the worker can be replaced without anything above the door noticing.",
-        "trajectory_stage": "GOVERNED_EXECUTION",
-        "carried_by": ["cis.execution.port", "cis.execution.gateway"]
-      },
-      {
-        "link_id": "EVIDENCE_COMES_BACK",
-        "plain_language": "What happened comes back as a recorded result rather than a claim of success, and it is written where it cannot later be edited.",
-        "trajectory_stage": "EVIDENCE",
-        "carried_by": ["cis.authority.runs", "cis.authority.evidence"]
-      }
+   },
+   {
+    "stage_id": "STEP_4_ARCHITECTURE_FREEZE",
+    "label": "Freeze the minimum architecture required before reconstruction",
+    "plain_language": "Agree the few rules the rebuild has to obey, before rebuilding anything under them.",
+    "status": "COMPLETE",
+    "evidence_basis": [
+     "project_decisions:ADR-ARCH-001 (2026-10-13) \u2014 module contract, planes as properties, Hermes replacement boundary",
+     "project_decisions:ADR-ARCH-002 (2026-10-13) \u2014 record once, derive everywhere",
+     "project_decisions:ADR-ARCH-003 (2026-10-13) \u2014 minimum execution-backend replacement boundary",
+     "project_decisions:ADR-ARCH-004 (2026-10-13) \u2014 human intent, canonical authority, cards as projections",
+     "project_decisions:ADR-SEED-018 \u2014 L1/L2/L3 layer ownership",
+     "project_decisions:ADR-SEED-015 \u2014 enforcement/trust domains"
     ]
-  },
-
-  "assurance_slice": {
-    "comment": "Slice-2 assurance progress, as its OWN projection. proven_slice above means the slice-1 path from human words to recorded evidence and keeps that meaning exactly; widening it would change what every existing reader of it is being told. Each link names the assurance trajectory stage that records it, so whether a link is proven is read from trajectory_events and is never written down here.",
-    "increment_id": "SLICE-002-ASSURANCE-001",
-    "statement": "A bounded unit of authorized work becomes an immutable task contract, is verified deterministically against the evidence actually submitted, is reviewed by a separate lineage that assembles its own packet, may be objected to at most three times before it escalates, and is promoted only as a recorded decision that verification and review both passed.",
-    "links": [
-      {
-        "link_id": "THE_WORK_IS_FROZEN_BEFORE_IT_IS_JUDGED",
-        "plain_language": "What is about to be assured is written down once, in full, and sealed with its own kind of fingerprint — so nobody can quietly widen it afterwards and nobody can pass its fingerprint off as the permission that allowed it.",
-        "trajectory_stage": "TASK_CONTRACT",
-        "carried_by": ["cis.assurance.task_contract", "cis.assurance.authority"]
-      },
-      {
-        "link_id": "A_MACHINE_CHECKS_WHAT_WAS_ACTUALLY_HANDED_IN",
-        "plain_language": "The same checks run the same way every time against the evidence that was actually submitted; missing evidence is a recorded failure, not a silence.",
-        "trajectory_stage": "INDEPENDENT_VERIFICATION",
-        "carried_by": ["cis.assurance.verifier", "cis.assurance.authority"]
-      },
-      {
-        "link_id": "SOMEONE_ELSE_LOOKS_AND_MAY_OBJECT",
-        "plain_language": "A reviewer that is not the checker gathers the evidence again for itself, recomputes every fingerprint it relies on, and may object — three times at most, after which it stops and escalates to a person.",
-        "trajectory_stage": "INDEPENDENT_REVIEW",
-        "carried_by": ["cis.assurance.reviewer", "cis.assurance.authority"]
-      },
-      {
-        "link_id": "PROMOTION_IS_A_DECISION_NOT_AN_ACTION",
-        "plain_language": "Being allowed to go live requires both the check and the review to have passed, and what gets written down is the decision — nothing is installed, started or changed on any machine by this.",
-        "trajectory_stage": "PROMOTION_DECISION",
-        "carried_by": ["cis.assurance.promotion", "cis.assurance.authority"]
-      }
+   },
+   {
+    "stage_id": "STEP_5_CLEAN_MODULAR_RECONSTRUCTION",
+    "label": "Build the clean environment from positively identified modules and contracts",
+    "plain_language": "Rebuild CIS in a clean space, one named part at a time, each part carrying its own written promise.",
+    "status": "COMPLETE",
+    "evidence_basis": [
+     "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23 STEP 5, A26 clean-room principle",
+     "dev_continuity_events:WB.1:178 \u2014 continuity acceptance criterion (questions and fragments must recover prior intent, not silently redirect)"
     ]
-  },
-
-  "assurance_increment": {
-    "increment_id": "SLICE-002-ASSURANCE-001",
-    "title": "Slice 2, increment 1: frozen task contract, deterministic verification, independent review, bounded objections, record-only promotion",
-    "host_independence": {
-      "statement": "This increment is HOST-INDEPENDENT. It performs no host promotion, no deployment, no service restart and no privileged action of any kind.",
-      "detail": "A verified /opt/cis-control host and systemd handoff exist outside this environment. Nothing here reads, writes, configures or depends on them: promotion_decisions.host_action is constrained in SQL to the single value NONE_RECORD_ONLY, and cis.assurance.promotion imports no module capable of reaching a host.",
-      "reference_environment_note": "/mnt/projects/cis remains READ-ONLY EVIDENCE and is reference only. It is not an input to this increment."
-    },
-    "review_cycle_semantics": {
-      "statement": "Review cycles 1 to 3 are bounded review and recovery DECISIONS over immutable submitted evidence.",
-      "what_is_recorded": "Each objection cycle records the objections raised and the recovery the reviewer asked for, one of REQUEST_REVISED_SUBMISSION, REQUEST_REPLACEMENT_CANDIDATE or ESCALATE.",
-      "what_is_not_implemented": "Executing a replacement candidate, or producing a revised submission, is NOT part of this increment. objection_cycles.replacement_execution_wiring is constrained in SQL to the single value DEFERRED_TO_CONTAINED_WORKER_CAPABILITY, so authority itself records that the wiring belongs with the later real nonroot contained-worker capability. No module here claims remediation ran.",
-      "consequence_stated_openly": "Because the submission is immutable and the reviewer is deterministic, a submission that draws objections draws the same objections on cycles 2 and 3 and then escalates. That is the honest behaviour of a bounded review loop that has no remediation path yet."
-    },
-    "order_reconciliation": {
-      "comment": "The lettered boundary proofs A-O, reconciled against what this increment actually delivers. The letters are declared HERE, in the clean environment, for this increment; nothing was copied from the reference tree (handoff A26). Status is a structured field, so a reader derives what is proven from this list rather than from prose, and a projection cannot claim a letter this list does not grant.",
-      "authority": [
-        "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23 STEP 6 — prove the boundaries",
-        "project_decisions:ADR-ARCH-004 clause 5 — author is not verifier, separate lineage reviews",
-        "project_decisions:ADR-ARCH-003 clause 4 — replaceable execution infrastructure"
-      ],
-      "statuses": ["PROVEN_IN_THIS_INCREMENT", "MANDATORY_OUTSTANDING"],
-      "waiver": "NONE — no A-O boundary proof is waived by this increment",
-      "gated_capability": null,
-      "gating_rule": "No letter remains outstanding. A-G and O are carried by the real contained worker proof; M-N are carried by the separate decision-enforcing host promotion gate and its authority-only rollback drill.",
-      "letters": [
-        {
-          "letter": "A",
-          "label": "A real nonroot contained worker executes a frozen task contract",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.worker.contained_nonroot", "cis.execution.gateway"]
-        },
-        {
-          "letter": "B",
-          "label": "Filesystem containment: the worker cannot write outside the task contract's allowed paths",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.worker.contained_nonroot"]
-        },
-        {
-          "letter": "C",
-          "label": "Network containment: the worker cannot reach any network",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.worker.contained_nonroot"]
-        },
-        {
-          "letter": "D",
-          "label": "Privilege containment: the worker cannot escalate to root",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.worker.contained_nonroot"]
-        },
-        {
-          "letter": "E",
-          "label": "Resource and timeout containment: the worker stops at the declared stopping condition",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.worker.contained_nonroot"]
-        },
-        {
-          "letter": "F",
-          "label": "Worker identity: the executing uid is nonroot and is recorded as evidence",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.worker.contained_nonroot"]
-        },
-        {
-          "letter": "G",
-          "label": "Teardown: a worker leaves no residue and no running process behind",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.worker.contained_nonroot"]
-        },
-        {
-          "letter": "H",
-          "label": "A task contract is immutable, FROZEN, independently hashed, and refuses path widening and digest tamper",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.assurance.task_contract", "cis.assurance.authority"]
-        },
-        {
-          "letter": "I",
-          "label": "Verification is deterministic over the evidence actually submitted, and missing evidence is a recorded failure",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.assurance.verifier", "cis.assurance.authority"]
-        },
-        {
-          "letter": "J",
-          "label": "Review is performed by a separate lineage through its own input port, which recomputes every digest it relies on and shares no code path with the verifier",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.assurance.reviewer", "cis.contracts.registry"]
-        },
-        {
-          "letter": "K",
-          "label": "Objections are bounded to three cycles and then escalate, with a fourth cycle impossible at the API, the ledger and the SQL constraint",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.assurance.reviewer", "cis.assurance.authority"]
-        },
-        {
-          "letter": "L",
-          "label": "Promotion is authorized only on the conjunction of a passed verification and a passed review, and is recorded as a decision with no host action",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.assurance.promotion", "cis.assurance.authority"]
-        },
-        {
-          "letter": "M",
-          "label": "A promotion decision is actually applied to a host under that decision, and only under it",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.host.promotion_gate", "cis.assurance.promotion"]
-        },
-        {
-          "letter": "N",
-          "label": "Rollback and recovery drill: a promoted change is reverted from authority alone",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.host.promotion_gate"]
-        },
-        {
-          "letter": "O",
-          "label": "End-to-end containment regression over a real worker, repeated from a cold start",
-          "status": "PROVEN_IN_THIS_INCREMENT",
-          "carried_by": ["cis.worker.contained_nonroot", "cis.assurance.verifier", "cis.assurance.reviewer"]
-        }
-      ]
-    }
-  },
-
-  "projection_regeneration": {
-    "proof_id": "PROJECTION-REGENERATION-SLICE-003",
-    "gate_module": "cis.projection.regeneration_gate",
-    "rule": "Every declared surface is constructed twice through fresh projection instances from unchanged authority; each canonical surface hash must match and the complete authority digest must be identical before, between and after both passes.",
-    "cold_start_rule": "The surface_set_hash from a file-backed authority must match after closing and reopening that same authority through fresh services and projections.",
-    "surfaces": [
-      {
-        "surface_id": "blueprint.summary",
-        "module_id": "cis.blueprint.manifest",
-        "authority_inputs": ["blueprint/reconstruction_manifest.json", "contracts/*.contract.json"]
-      },
-      {
-        "surface_id": "contracts.registry",
-        "module_id": "cis.contracts.registry",
-        "authority_inputs": ["contracts/*.contract.json"]
-      },
-      {
-        "surface_id": "workbench.trajectory",
-        "module_id": "cis.workbench.projection",
-        "authority_inputs": ["trajectory_events", "intent_transactions", "continuity_decisions", "backend_runs", "execution_authorizations", "blueprint/reconstruction_manifest.json"]
-      },
-      {
-        "surface_id": "assurance.progress",
-        "module_id": "cis.assurance.projection",
-        "authority_inputs": ["task_contracts", "verification_inputs", "verification_results", "review_results", "objection_cycles", "promotion_decisions", "trajectory_events", "blueprint/reconstruction_manifest.json"]
-      }
+   },
+   {
+    "stage_id": "STEP_6_PROVE_THE_BOUNDARIES",
+    "label": "Prove single-owner authority, sanctioned mutation, regeneration, replaceability",
+    "plain_language": "Show with tests, rather than claim in prose, that those promises actually hold when something goes wrong.",
+    "status": "COMPLETE",
+    "evidence_basis": [
+     "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23 STEP 6",
+     "tests/ in this environment \u2014 the boundary proofs this slice carries",
+     "runtime/worker-proof/final-proof.json \u2014 real Docker A-O proof"
     ]
-  },
-
-  "contained_worker_increment": {
-    "increment_id": "SLICE-004-CONTAINED-WORKER-001",
-    "proof_artifact": "runtime/worker-proof/final-proof.json",
-    "image": "cis-contained-worker:proof-v2",
-    "statement": "A verified frozen task contract crosses the existing execution port into a fresh nonroot networkless container, returns a candidate rather than a promotion, passes independent verification and review, and can be applied and rolled back only through a separate decision-enforcing host gate.",
-    "worker_boundary": [
-      "network none",
-      "read-only root filesystem",
-      "all Linux capabilities dropped",
-      "no-new-privileges",
-      "nonroot runtime uid",
-      "bounded pids, memory, cpu and wall time",
-      "one read-only contract mount and one writable workspace",
-      "forced cleanup followed by an absence check"
-    ],
-    "host_handoff": {
-      "decision_owner": "cis.assurance.promotion",
-      "action_enforcer": "cis.host.promotion_gate",
-      "rule": "candidate bytes must match submitted worker evidence and a recorded PROMOTION_AUTHORIZED decision before a host plan or mutation can exist",
-      "recovery": "candidate and prior bytes are recorded in an immutable plan before mutation; apply and rollback completion are derived from append-only events and an interrupted action is resumable from authority alone"
-    }
-  },
-
-  "selected_modules": [
-    {
-      "module_id": "cis.blueprint.manifest",
-      "contract": "contracts/cis.blueprint.manifest.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "reconstruction blueprint as operational input",
-      "evidence_basis": ["ADR-ARCH-001 clause 7(a)", "handoff A26"]
-    },
-    {
-      "module_id": "cis.contracts.registry",
-      "contract": "contracts/cis.contracts.registry.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "module contract definition and field-level validation",
-      "evidence_basis": ["ADR-ARCH-001 clauses 3,4,5,7(b)", "handoff A9"]
-    },
-    {
-      "module_id": "cis.authority.store",
-      "contract": "contracts/cis.authority.store.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "sanctioned mutation interface to authority",
-      "evidence_basis": ["handoff A21", "ADR-ARCH-002"]
-    },
-    {
-      "module_id": "cis.authority.intent",
-      "contract": "contracts/cis.authority.intent.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "verbatim instruction preserved as immutable source evidence",
-      "evidence_basis": ["ADR-ARCH-004 clause 1 and ROLE 1"]
-    },
-    {
-      "module_id": "cis.authority.continuity",
-      "contract": "contracts/cis.authority.continuity.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "continuity of perspective — active objective preserved or explicitly superseded",
-      "evidence_basis": ["dev_continuity_events:WB.1:178", "ADR-ARCH-004 clause 1"]
-    },
-    {
-      "module_id": "cis.authority.evidence",
-      "contract": "contracts/cis.authority.evidence.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "immutable evidence and recorded conflicts",
-      "evidence_basis": ["ADR-ARCH-002 evidence clause", "handoff A12"]
-    },
-    {
-      "module_id": "cis.authority.authorization",
-      "contract": "contracts/cis.authority.authorization.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "structured execution contract with exact binding",
-      "evidence_basis": ["ADR-ARCH-004 clauses 2,3 and ROLE 3"]
-    },
-    {
-      "module_id": "cis.authority.runs",
-      "contract": "contracts/cis.authority.runs.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "backend run ledger",
-      "evidence_basis": ["ADR-ARCH-004 ROLE 6", "ADR-SEED-018 run-plane note"]
-    },
-    {
-      "module_id": "cis.authority.trajectory",
-      "contract": "contracts/cis.authority.trajectory.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "append-only trajectory authority",
-      "evidence_basis": ["handoff A18 Workbench as generated lens", "ADR-ARCH-002"]
-    },
-    {
-      "module_id": "cis.continuity.classifier",
-      "contract": "contracts/cis.continuity.classifier.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "deterministic classification of an exchange as question, addition, correction or explicit redirection",
-      "evidence_basis": ["dev_continuity_events:WB.1:178"]
-    },
-    {
-      "module_id": "cis.continuity.retrieval",
-      "contract": "contracts/cis.continuity.retrieval.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "antecedent retrieval in the user's original language",
-      "evidence_basis": ["dev_continuity_events:WB.1:178", "handoff A12"]
-    },
-    {
-      "module_id": "cis.workbench.service",
-      "contract": "contracts/cis.workbench.service.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "instruction to bounded authorization",
-      "evidence_basis": ["handoff A2 conceptual chain", "ADR-ARCH-004 clauses 1,2,3,6"]
-    },
-    {
-      "module_id": "cis.workbench.projection",
-      "contract": "contracts/cis.workbench.projection.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "macro and micro trajectory projection with a derived you-are-here marker",
-      "evidence_basis": ["handoff A18", "ADR-ARCH-002 derivative clause"]
-    },
-    {
-      "module_id": "cis.execution.port",
-      "contract": "contracts/cis.execution.port.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "CIS-owned Layer-2 execution contract",
-      "evidence_basis": ["ADR-ARCH-003 clauses 1,2,3,4", "ADR-ARCH-001 clause 8"]
-    },
-    {
-      "module_id": "cis.execution.gateway",
-      "contract": "contracts/cis.execution.gateway.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "sole call path to any execution backend, gated on a valid ALLOW",
-      "evidence_basis": ["ADR-ARCH-003 clause 1", "ADR-ARCH-004 clause 2"]
-    },
-    {
-      "module_id": "cis.execution.adapters.deterministic_mock",
-      "contract": "contracts/cis.execution.adapters.deterministic_mock.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "one replaceable L3 execution backend, deterministic and offline",
-      "evidence_basis": ["ADR-ARCH-001 clause 8", "ADR-ARCH-003 clause 4"]
-    },
-    {
-      "module_id": "cis.conductor.service",
-      "contract": "contracts/cis.conductor.service.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "single Layer-2 ingress boundary binding every public state-changing transaction to immutable envelope evidence",
-      "evidence_basis": ["ADR-ARCH-002", "ADR-ARCH-004 clauses 1,2", "ADR-SEED-018 governing boundary rule"]
-    },
-    {
-      "module_id": "cis.interface.api",
-      "contract": "contracts/cis.interface.api.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
-      "capability": "Workbench-facing control surface over the slice",
-      "evidence_basis": ["ADR-SEED-018 L1 and the governing boundary rule"]
-    },
-    {
-      "module_id": "cis.assurance.task_contract",
-      "contract": "contracts/cis.assurance.task_contract.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
-      "capability": "deterministic template-backed compilation of an immutable FROZEN task contract in its own independent hash domain",
-      "evidence_basis": ["ADR-ARCH-004 clause 3", "ADR-ARCH-001 clause 3"]
-    },
-    {
-      "module_id": "cis.policy.compiler",
-      "contract": "contracts/cis.policy.compiler.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_005",
-      "capability": "closed-schema MASTER and exact-match TASK policy compilation into a task-contract-bound immutable envelope",
-      "evidence_basis": ["dev_continuity_events:WB.1:180-182 deterministic enforcement correction", "queue item 4.20"]
-    },
-    {
-      "module_id": "cis.assurance.authority",
-      "contract": "contracts/cis.assurance.authority.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
-      "capability": "single owner of the append-only assurance ledger, reached only through disjoint verifier, reviewer and promotion facades",
-      "evidence_basis": ["ADR-ARCH-001 clause 5", "ADR-ARCH-002", "handoff A21"]
-    },
-    {
-      "module_id": "cis.policy.authority",
-      "contract": "contracts/cis.policy.authority.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_005",
-      "capability": "single append-only owner of automatically ingested structured policy sources and task-contract-bound compiled envelopes, with atomic admission, integrity and staleness refusal",
-      "evidence_basis": ["ADR-ARCH-001 clause 5", "dev_continuity_events:WB.1:182", "queue item 4.20"]
-    },
-    {
-      "module_id": "cis.assurance.verifier",
-      "contract": "contracts/cis.assurance.verifier.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
-      "capability": "deterministic verification of one frozen task contract against the evidence actually submitted",
-      "evidence_basis": ["ADR-ARCH-004 clause 5", "handoff A24 evidence_before_completion_claims"]
-    },
-    {
-      "module_id": "cis.assurance.reviewer",
-      "contract": "contracts/cis.assurance.reviewer.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
-      "capability": "independent review by a separate lineage through its own input port, bounded to three objection cycles",
-      "evidence_basis": ["ADR-ARCH-004 clause 5", "ADR-XDEV-001 as cited by the handoff README"]
-    },
-    {
-      "module_id": "cis.assurance.promotion",
-      "contract": "contracts/cis.assurance.promotion.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
-      "capability": "record-only promotion decision on the conjunction of a passed verification and a passed review",
-      "evidence_basis": ["ADR-ARCH-004 clause 5", "ADR-SEED-015 enforcement and trust domains"]
-    },
-    {
-      "module_id": "cis.assurance.projection",
-      "contract": "contracts/cis.assurance.projection.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
-      "capability": "read-only assurance progress projection, separate from proven_slice, with micro-stage visibility and the A-O order reconciliation",
-      "evidence_basis": ["ADR-ARCH-002 derivative clause", "handoff A18"]
-    },
-    {
-      "module_id": "cis.projection.regeneration_gate",
-      "contract": "contracts/cis.projection.regeneration_gate.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_003",
-      "capability": "fail-closed proof that every declared projection regenerates byte-identically from authority without writing back",
-      "evidence_basis": ["ADR-ARCH-002 derivative clause", "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23 STEP 6"]
-    },
-    {
-      "module_id": "cis.worker.contained_nonroot",
-      "contract": "contracts/cis.worker.contained_nonroot.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_004",
-      "capability": "real nonroot networkless fresh-container execution with recomputed task/policy bindings and a closed mapping from policy obligation labels to independently verified container and host facts, producing candidate evidence but no promotion",
-      "evidence_basis": ["ADR-SEED-015 three-layer process isolation", "ADR-SEED-016 enforcement primitive", "assurance_increment.order_reconciliation letters A-G and O"]
-    },
-    {
-      "module_id": "cis.host.promotion_gate",
-      "contract": "contracts/cis.host.promotion_gate.contract.json",
-      "reconstruction_status": "RECONSTRUCTED_IN_SLICE_004",
-      "capability": "decision-enforcing bounded host apply plus authority-only resumable rollback",
-      "evidence_basis": ["ADR-SEED-015 host control boundary", "assurance_increment.order_reconciliation letters M-N"]
-    }
-  ],
-
-  "deferred_modules": [
-    {
-      "module_id": "cis.execution.adapters.<external_harness>",
-      "reconstruction_status": "DEFERRED_NOT_AUTHORIZED",
-      "reason": "ADR-ARCH-003 adopts, evaluates and records no backend. Absence is the status of an unadopted backend, and recording standing would create standing it does not have.",
-      "evidence_basis": ["ADR-ARCH-003 paragraph 3", "handoff A7"]
-    },
-    {
-      "module_id": "cis.review.cross_lineage_external",
-      "reconstruction_status": "DEFERRED_NEXT_SLICE",
-      "reason": "cis.assurance.reviewer satisfies author-is-not-verifier inside this environment: a separate module, a separate input port, a separate recorded lineage, and a registry-enforced independence from the verifier. What remains deferred is review by a lineage EXTERNAL to this environment, which needs an identity seam that does not exist here.",
-      "evidence_basis": ["ADR-ARCH-004 clause 5", "ADR-XDEV-001 as cited by the handoff README"]
-    }
-  ],
-
-  "preserved_capabilities": {
-    "comment": "Handoff A24 — capabilities that must survive reconstruction, mapped to the module that carries each one in this slice. A capability with no module here is explicitly deferred, not silently dropped.",
-    "immutable_human_intent": ["cis.authority.intent"],
-    "authority_history_distinction": ["cis.authority.evidence", "cis.authority.continuity"],
-    "single_owner_authority": ["cis.contracts.registry"],
-    "sanctioned_mutation_path": ["cis.authority.store"],
-    "constrained_task_execution": ["cis.authority.authorization", "cis.policy.compiler", "cis.policy.authority", "cis.execution.gateway", "cis.worker.contained_nonroot"],
-    "deterministic_policy_enforcement": ["cis.policy.compiler", "cis.policy.authority", "cis.execution.gateway", "cis.worker.contained_nonroot"],
-    "evidence_before_completion_claims": ["cis.authority.runs", "cis.authority.evidence"],
-    "fail_closed_behaviour": ["cis.execution.gateway", "cis.workbench.service"],
-    "execution_backend_replaceability": ["cis.execution.port", "cis.execution.gateway"],
-    "generated_projections": ["cis.workbench.projection", "cis.assurance.projection"],
-    "projection_regeneration_proof": ["cis.projection.regeneration_gate"],
-    "workbench_architecture_visibility": ["cis.interface.api", "cis.workbench.projection", "cis.assurance.projection"],
-    "recovery_cold_start": ["cis.blueprint.manifest", "cis.authority.store", "cis.worker.contained_nonroot", "cis.host.promotion_gate"],
-    "author_is_not_verifier": ["cis.assurance.verifier", "cis.assurance.reviewer", "cis.contracts.registry"],
-    "bounded_assurance_objections": ["cis.assurance.reviewer", "cis.assurance.authority"],
-    "immutable_task_contract": ["cis.assurance.task_contract", "cis.assurance.authority"],
-    "promotion_as_decision_not_action": ["cis.assurance.promotion"],
-    "promotion_action_enforcement_and_rollback": ["cis.host.promotion_gate"],
-    "deferred_to_a_later_slice": {
-      "external_development_continuity": "cis.review.cross_lineage_external",
-      "destination_extensibility_wiasw": "no destination adapter exists yet",
-      "security_trust_boundaries": "this environment runs offline in-process and nothing listens by default; cis serve opens an unauthenticated loopback operator console with no caller identity, which is why it is not an external-agent endpoint, and no credential exists to protect"
-    }
-  },
-
-  "acceptance_criteria": [
-    "An ordinary question does not change the active objective.",
-    "A vague memory fragment retrieves an antecedent in its original language.",
-    "Only an explicit redirection supersedes the active objective, and the superseded objective is retained.",
-    "A retrieved antecedent is contextual continuity evidence and never an execution-authorization basis; token overlap grants no permission.",
-    "Execution authority derives only from canonical accepted authority for the target module — the validated selected-module entry and its non-empty evidence_basis, the module contract and reconstruction status, an independently established active objective, and no recorded evidence conflict.",
-    "Resubmitting the same request supplies no new canonical authority and cannot change HOLD to ALLOW; a repeated ALLOW is bounded identically to the first.",
-    "A request may not supply the objective it is authorized under.",
-    "A selected module with an absent, empty or blank evidence_basis is refused at manifest validation, and fails closed at authorization if it reaches the Workbench anyway.",
-    "required_evidence on an ALLOW names the target module's canonical accepted evidence_basis, never a retrieved antecedent, prior request or prior run id.",
-    "Retrieval prefers original human intent over records generated from execution when both match a cue.",
-    "A mutated or stale authorization fails closed.",
-    "No backend runs without a valid ALLOW whose binding recomputes from authority.",
-    "A second backend adapter is added with no change above the Layer-2 port.",
-    "No name, port, path, configuration file or log format of any backend appears above the adapter boundary.",
-    "Authority is append-only: UPDATE and DELETE are refused by the store.",
-    "The you-are-here marker is derived from authority, never stored twice.",
-    "The whole slice runs with sockets disabled.",
-    "The plain-language reconstruction journey derives what is current, what is proven and what is next from this manifest and the trajectory authority, and no second record of progress exists for it to drift from.",
-    "Every plain-language sentence the journey shows is recorded in this manifest rather than in presentation code, and a journey step naming a capability, module or stage this manifest does not declare is refused at load.",
-    "A task contract is created FROZEN, is hashed in its own domain, links forward to an existing authorization, and alters no slice-1 table.",
-    "A task contract may narrow its compiled path envelope and may never widen it; an absolute path, an escaping path, a path outside the target module's subtree and any mention of the reference environment are refused.",
-    "A task contract whose independent digest does not recompute is refused rather than assessed, by the verifier and by the reviewer separately.",
-    "Every policy-governed contained-worker request inherits all applicable MASTER restrictions and only exact-match additive or narrowing TASK policy; missing, conflicting, widened, stale, forged or mismatched envelopes refuse before backend entry.",
-    "Every governed dispatch automatically admits the cumulative closed-schema operational policy catalog idempotently, derives its selector only from frozen task facts and a trusted profile, compiles the current whole-set-validated policy into an immutable envelope, and refuses an old task contract when applicable policy has changed.",
-    "Every contained-worker policy check and evidence label has one closed code-defined mapping to underlying verified facts; container claims cannot create host facts, and only a label emitted as verified after all mapped facts pass can satisfy the gateway.",
-    "Verification is deterministic over immutable submitted evidence, and absent evidence produces a recorded VERIFIED_FAIL rather than silence.",
-    "The reviewer assembles its own packet from authority, recomputes every digest it relies on, imports nothing from the verifier, and is registry-enforced to be unable to reach it through any chain of dependencies.",
-    "Promotion is PROMOTION_AUTHORIZED only when verification passed and review passed; review pending, review objections, verification failure and escalation each produce PROMOTION_DENIED with a distinct reason code.",
-    "At most three objection cycles exist for any task contract; the third escalates, and a fourth is refused at the API, at the ledger and by SQL constraint.",
-    "A promotion decision records a decision and performs no host action; host_action is constrained to NONE_RECORD_ONLY and the promotion module can reach no host.",
-    "Assurance progress is exposed as its own projection and read-only API surface; proven_slice keeps its slice-1 meaning and its counts unchanged.",
-    "No A-O boundary proof is waived: every MANDATORY_OUTSTANDING letter gates the later real nonroot contained-worker capability and is reported as outstanding.",
-    "Every declared projection surface regenerates twice to identical canonical hashes from unchanged authority, regeneration leaves the complete authority digest unchanged, and the combined surface hash survives a file-backed cold start."
+   },
+   {
+    "stage_id": "STEP_7_RESUME_PIPELINE_BUILD",
+    "label": "Return to forward pipeline / WIASW development",
+    "plain_language": "Go back to building what CIS is for, now standing on a foundation that holds.",
+    "status": "ACTIVE",
+    "evidence_basis": [
+     "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23 STEP 7"
+    ]
+   }
   ]
+ },
+ "destination": {
+  "comment": "What CIS is becoming, written for the person it is being built for. The flow below is the destination in order; each step names the preserved capabilities that carry it, so the page that shows this cannot claim a step is covered unless a capability in this manifest covers it (handoff A24, ADR-ARCH-002).",
+  "statement": "CIS is becoming the place where a person's changing idea turns into work a machine does under written permission: nothing said is lost, nothing runs unbounded, nothing is called finished without proof, and the person can see the whole of it in their own words and correct it.",
+  "authority": [
+   "project_decisions:ADR-ARCH-004 \u2014 human intent, canonical authority, cards as projections (ROLES 1-6)",
+   "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A2 conceptual chain",
+   "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A24 capabilities that must survive reconstruction"
+  ],
+  "flow": [
+   {
+    "step_id": "AN_EVOLVING_USER_IDEA",
+    "plain_language": "A person says what they want, in their own words, and keeps changing their mind as they learn.",
+    "question_it_answers": "Is this still my intent after CIS has read it?",
+    "capabilities": [
+     "immutable_human_intent"
+    ]
+   },
+   {
+    "step_id": "REMEMBERED_INTENT_AND_CURRENT_KNOWLEDGE",
+    "plain_language": "CIS remembers what was already said and what is already known, so a question does not restart the conversation or quietly change its direction.",
+    "question_it_answers": "Does what we agreed earlier still count today?",
+    "capabilities": [
+     "authority_history_distinction",
+     "recovery_cold_start"
+    ]
+   },
+   {
+    "step_id": "AN_EXECUTABLE_PLAN",
+    "plain_language": "The idea becomes a plan with edges: exactly what may be touched, what may never be touched, and when to stop.",
+    "question_it_answers": "What precisely is about to be done, and what is forbidden while doing it?",
+    "capabilities": [
+     "constrained_task_execution",
+     "deterministic_policy_enforcement"
+    ]
+   },
+   {
+    "step_id": "BOUNDED_AI_WORK",
+    "plain_language": "A machine does the work inside those edges, and whichever machine it is can be swapped for another without rewriting the plan or anything above it.",
+    "question_it_answers": "Who did the work, and could they be replaced tomorrow?",
+    "capabilities": [
+     "execution_backend_replaceability",
+     "fail_closed_behaviour"
+    ]
+   },
+   {
+    "step_id": "INDEPENDENT_PROOF",
+    "plain_language": "Nothing counts as done on the worker's own word: proof is recorded with the result, and someone other than the author checks it.",
+    "question_it_answers": "Why should anyone believe this is actually finished?",
+    "capabilities": [
+     "evidence_before_completion_claims",
+     "author_is_not_verifier"
+    ]
+   },
+   {
+    "step_id": "VISIBLE_RECURSIVE_REFINEMENT",
+    "plain_language": "The person can see the whole state at any moment, correct it, and watch the correction travel into the next round of work.",
+    "question_it_answers": "Can I see where we are, and change it?",
+    "capabilities": [
+     "generated_projections",
+     "workbench_architecture_visibility"
+    ]
+   }
+  ]
+ },
+ "slice": {
+  "slice_id": "SLICE-001",
+  "objective": "Convert one human instruction into a bounded ALLOW or HOLD authorization and, when ALLOW, one governed backend run with evidence and a derived trajectory.",
+  "in_scope": [
+   "machine-readable reconstruction blueprint as operational input",
+   "module-contract registry and 16-field validator",
+   "clean append-only SQLite authority with migrations",
+   "Workbench application service with verbatim preservation and continuity",
+   "exact binding across instruction, decision, authorization, scope, baseline",
+   "continuity antecedents and the execution-authorization basis as two separate concerns",
+   "CIS-owned Layer-2 execution port with one deterministic backend adapter",
+   "append-only trajectory projection with a derived you-are-here marker",
+   "Workbench-facing JSON interface over the whole slice"
+  ],
+  "out_of_scope": [
+   "any multi-backend contract schema, capability negotiation, streaming, cost accounting or error taxonomy (ADR-ARCH-003 defers these)",
+   "any adapter for a named external harness",
+   "test H2 \u2014 whether a different execution harness satisfies the contract",
+   "migration of reference-environment data into this environment",
+   "network, model or LLM calls of any kind"
+  ]
+ },
+ "proven_slice": {
+  "comment": "The one path this slice has actually driven end to end. Each link names the trajectory stage that records it, so whether a link is proven is read from trajectory_events and is never written down here. carried_by names selected modules; a reader wanting the three planes reads them as fields of those modules' own contracts (ADR-ARCH-001 clause 2).",
+  "links": [
+   {
+    "link_id": "THE_WORKBENCH_TAKES_YOUR_WORDS",
+    "plain_language": "You say it once, in your own words, and those exact words are kept as the source \u2014 the reading CIS makes of them is stored beside them and never on top of them.",
+    "trajectory_stage": "HUMAN_INTENT",
+    "carried_by": [
+     "cis.workbench.service",
+     "cis.authority.intent"
+    ]
+   },
+   {
+    "link_id": "CONTINUITY_KEEPS_THE_THREAD",
+    "plain_language": "A question or a half-remembered fragment brings back what was already said instead of sending the work somewhere new; only an explicit redirection changes direction.",
+    "trajectory_stage": "CONTINUITY",
+    "carried_by": [
+     "cis.continuity.classifier",
+     "cis.continuity.retrieval",
+     "cis.authority.continuity"
+    ]
+   },
+   {
+    "link_id": "AUTHORIZATION_BOUNDS_THE_WORK",
+    "plain_language": "Before anything runs, CIS writes down what may be done, what is forbidden, what counts as proof and when to stop \u2014 and refuses by default when it cannot.",
+    "trajectory_stage": "REVIEW_AUTHORIZATION",
+    "carried_by": [
+     "cis.authority.authorization"
+    ]
+   },
+   {
+    "link_id": "A_REPLACEABLE_WORKER_DOES_IT",
+    "plain_language": "The work goes out through one door to a worker CIS owns the contract for, so the worker can be replaced without anything above the door noticing.",
+    "trajectory_stage": "GOVERNED_EXECUTION",
+    "carried_by": [
+     "cis.execution.port",
+     "cis.execution.gateway"
+    ]
+   },
+   {
+    "link_id": "EVIDENCE_COMES_BACK",
+    "plain_language": "What happened comes back as a recorded result rather than a claim of success, and it is written where it cannot later be edited.",
+    "trajectory_stage": "EVIDENCE",
+    "carried_by": [
+     "cis.authority.runs",
+     "cis.authority.evidence"
+    ]
+   }
+  ]
+ },
+ "assurance_slice": {
+  "comment": "Slice-2 assurance progress, as its OWN projection. proven_slice above means the slice-1 path from human words to recorded evidence and keeps that meaning exactly; widening it would change what every existing reader of it is being told. Each link names the assurance trajectory stage that records it, so whether a link is proven is read from trajectory_events and is never written down here.",
+  "increment_id": "SLICE-002-ASSURANCE-001",
+  "statement": "A bounded unit of authorized work becomes an immutable task contract, is verified deterministically against the evidence actually submitted, is reviewed by a separate lineage that assembles its own packet, may be objected to at most three times before it escalates, and is promoted only as a recorded decision that verification and review both passed.",
+  "links": [
+   {
+    "link_id": "THE_WORK_IS_FROZEN_BEFORE_IT_IS_JUDGED",
+    "plain_language": "What is about to be assured is written down once, in full, and sealed with its own kind of fingerprint \u2014 so nobody can quietly widen it afterwards and nobody can pass its fingerprint off as the permission that allowed it.",
+    "trajectory_stage": "TASK_CONTRACT",
+    "carried_by": [
+     "cis.assurance.task_contract",
+     "cis.assurance.authority"
+    ]
+   },
+   {
+    "link_id": "A_MACHINE_CHECKS_WHAT_WAS_ACTUALLY_HANDED_IN",
+    "plain_language": "The same checks run the same way every time against the evidence that was actually submitted; missing evidence is a recorded failure, not a silence.",
+    "trajectory_stage": "INDEPENDENT_VERIFICATION",
+    "carried_by": [
+     "cis.assurance.verifier",
+     "cis.assurance.authority"
+    ]
+   },
+   {
+    "link_id": "SOMEONE_ELSE_LOOKS_AND_MAY_OBJECT",
+    "plain_language": "A reviewer that is not the checker gathers the evidence again for itself, recomputes every fingerprint it relies on, and may object \u2014 three times at most, after which it stops and escalates to a person.",
+    "trajectory_stage": "INDEPENDENT_REVIEW",
+    "carried_by": [
+     "cis.assurance.reviewer",
+     "cis.assurance.authority"
+    ]
+   },
+   {
+    "link_id": "PROMOTION_IS_A_DECISION_NOT_AN_ACTION",
+    "plain_language": "Being allowed to go live requires both the check and the review to have passed, and what gets written down is the decision \u2014 nothing is installed, started or changed on any machine by this.",
+    "trajectory_stage": "PROMOTION_DECISION",
+    "carried_by": [
+     "cis.assurance.promotion",
+     "cis.assurance.authority"
+    ]
+   }
+  ]
+ },
+ "assurance_increment": {
+  "increment_id": "SLICE-002-ASSURANCE-001",
+  "title": "Slice 2, increment 1: frozen task contract, deterministic verification, independent review, bounded objections, record-only promotion",
+  "host_independence": {
+   "statement": "This increment is HOST-INDEPENDENT. It performs no host promotion, no deployment, no service restart and no privileged action of any kind.",
+   "detail": "A verified /opt/cis-control host and systemd handoff exist outside this environment. Nothing here reads, writes, configures or depends on them: promotion_decisions.host_action is constrained in SQL to the single value NONE_RECORD_ONLY, and cis.assurance.promotion imports no module capable of reaching a host.",
+   "reference_environment_note": "/mnt/projects/cis remains READ-ONLY EVIDENCE and is reference only. It is not an input to this increment."
+  },
+  "review_cycle_semantics": {
+   "statement": "Review cycles 1 to 3 are bounded review and recovery DECISIONS over immutable submitted evidence.",
+   "what_is_recorded": "Each objection cycle records the objections raised and the recovery the reviewer asked for, one of REQUEST_REVISED_SUBMISSION, REQUEST_REPLACEMENT_CANDIDATE or ESCALATE.",
+   "what_is_not_implemented": "Executing a replacement candidate, or producing a revised submission, is NOT part of this increment. objection_cycles.replacement_execution_wiring is constrained in SQL to the single value DEFERRED_TO_CONTAINED_WORKER_CAPABILITY, so authority itself records that the wiring belongs with the later real nonroot contained-worker capability. No module here claims remediation ran.",
+   "consequence_stated_openly": "Because the submission is immutable and the reviewer is deterministic, a submission that draws objections draws the same objections on cycles 2 and 3 and then escalates. That is the honest behaviour of a bounded review loop that has no remediation path yet."
+  },
+  "order_reconciliation": {
+   "comment": "The lettered boundary proofs A-O, reconciled against what this increment actually delivers. The letters are declared HERE, in the clean environment, for this increment; nothing was copied from the reference tree (handoff A26). Status is a structured field, so a reader derives what is proven from this list rather than from prose, and a projection cannot claim a letter this list does not grant.",
+   "authority": [
+    "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23 STEP 6 \u2014 prove the boundaries",
+    "project_decisions:ADR-ARCH-004 clause 5 \u2014 author is not verifier, separate lineage reviews",
+    "project_decisions:ADR-ARCH-003 clause 4 \u2014 replaceable execution infrastructure"
+   ],
+   "statuses": [
+    "PROVEN_IN_THIS_INCREMENT",
+    "MANDATORY_OUTSTANDING"
+   ],
+   "waiver": "NONE \u2014 no A-O boundary proof is waived by this increment",
+   "gated_capability": null,
+   "gating_rule": "No letter remains outstanding. A-G and O are carried by the real contained worker proof; M-N are carried by the separate decision-enforcing host promotion gate and its authority-only rollback drill.",
+   "letters": [
+    {
+     "letter": "A",
+     "label": "A real nonroot contained worker executes a frozen task contract",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.worker.contained_nonroot",
+      "cis.execution.gateway"
+     ]
+    },
+    {
+     "letter": "B",
+     "label": "Filesystem containment: the worker cannot write outside the task contract's allowed paths",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.worker.contained_nonroot"
+     ]
+    },
+    {
+     "letter": "C",
+     "label": "Network containment: the worker cannot reach any network",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.worker.contained_nonroot"
+     ]
+    },
+    {
+     "letter": "D",
+     "label": "Privilege containment: the worker cannot escalate to root",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.worker.contained_nonroot"
+     ]
+    },
+    {
+     "letter": "E",
+     "label": "Resource and timeout containment: the worker stops at the declared stopping condition",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.worker.contained_nonroot"
+     ]
+    },
+    {
+     "letter": "F",
+     "label": "Worker identity: the executing uid is nonroot and is recorded as evidence",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.worker.contained_nonroot"
+     ]
+    },
+    {
+     "letter": "G",
+     "label": "Teardown: a worker leaves no residue and no running process behind",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.worker.contained_nonroot"
+     ]
+    },
+    {
+     "letter": "H",
+     "label": "A task contract is immutable, FROZEN, independently hashed, and refuses path widening and digest tamper",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.assurance.task_contract",
+      "cis.assurance.authority"
+     ]
+    },
+    {
+     "letter": "I",
+     "label": "Verification is deterministic over the evidence actually submitted, and missing evidence is a recorded failure",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.assurance.verifier",
+      "cis.assurance.authority"
+     ]
+    },
+    {
+     "letter": "J",
+     "label": "Review is performed by a separate lineage through its own input port, which recomputes every digest it relies on and shares no code path with the verifier",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.assurance.reviewer",
+      "cis.contracts.registry"
+     ]
+    },
+    {
+     "letter": "K",
+     "label": "Objections are bounded to three cycles and then escalate, with a fourth cycle impossible at the API, the ledger and the SQL constraint",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.assurance.reviewer",
+      "cis.assurance.authority"
+     ]
+    },
+    {
+     "letter": "L",
+     "label": "Promotion is authorized only on the conjunction of a passed verification and a passed review, and is recorded as a decision with no host action",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.assurance.promotion",
+      "cis.assurance.authority"
+     ]
+    },
+    {
+     "letter": "M",
+     "label": "A promotion decision is actually applied to a host under that decision, and only under it",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.host.promotion_gate",
+      "cis.assurance.promotion"
+     ]
+    },
+    {
+     "letter": "N",
+     "label": "Rollback and recovery drill: a promoted change is reverted from authority alone",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.host.promotion_gate"
+     ]
+    },
+    {
+     "letter": "O",
+     "label": "End-to-end containment regression over a real worker, repeated from a cold start",
+     "status": "PROVEN_IN_THIS_INCREMENT",
+     "carried_by": [
+      "cis.worker.contained_nonroot",
+      "cis.assurance.verifier",
+      "cis.assurance.reviewer"
+     ]
+    }
+   ]
+  }
+ },
+ "projection_regeneration": {
+  "proof_id": "PROJECTION-REGENERATION-SLICE-003",
+  "gate_module": "cis.projection.regeneration_gate",
+  "rule": "Every declared surface is constructed twice through fresh projection instances from unchanged authority; each canonical surface hash must match and the complete authority digest must be identical before, between and after both passes.",
+  "cold_start_rule": "The surface_set_hash from a file-backed authority must match after closing and reopening that same authority through fresh services and projections.",
+  "surfaces": [
+   {
+    "surface_id": "blueprint.summary",
+    "module_id": "cis.blueprint.manifest",
+    "authority_inputs": [
+     "blueprint/reconstruction_manifest.json",
+     "contracts/*.contract.json"
+    ]
+   },
+   {
+    "surface_id": "contracts.registry",
+    "module_id": "cis.contracts.registry",
+    "authority_inputs": [
+     "contracts/*.contract.json"
+    ]
+   },
+   {
+    "surface_id": "workbench.trajectory",
+    "module_id": "cis.workbench.projection",
+    "authority_inputs": [
+     "trajectory_events",
+     "intent_transactions",
+     "continuity_decisions",
+     "backend_runs",
+     "execution_authorizations",
+     "blueprint/reconstruction_manifest.json"
+    ]
+   },
+   {
+    "surface_id": "assurance.progress",
+    "module_id": "cis.assurance.projection",
+    "authority_inputs": [
+     "task_contracts",
+     "verification_inputs",
+     "verification_results",
+     "review_results",
+     "objection_cycles",
+     "promotion_decisions",
+     "trajectory_events",
+     "blueprint/reconstruction_manifest.json"
+    ]
+   }
+  ]
+ },
+ "contained_worker_increment": {
+  "increment_id": "SLICE-004-CONTAINED-WORKER-001",
+  "proof_artifact": "runtime/worker-proof/final-proof.json",
+  "image": "cis-contained-worker:proof-v2",
+  "statement": "A verified frozen task contract crosses the existing execution port into a fresh nonroot networkless container, returns a candidate rather than a promotion, passes independent verification and review, and can be applied and rolled back only through a separate decision-enforcing host gate.",
+  "worker_boundary": [
+   "network none",
+   "read-only root filesystem",
+   "all Linux capabilities dropped",
+   "no-new-privileges",
+   "nonroot runtime uid",
+   "bounded pids, memory, cpu and wall time",
+   "one read-only contract mount and one writable workspace",
+   "forced cleanup followed by an absence check"
+  ],
+  "host_handoff": {
+   "decision_owner": "cis.assurance.promotion",
+   "action_enforcer": "cis.host.promotion_gate",
+   "rule": "candidate bytes must match submitted worker evidence and a recorded PROMOTION_AUTHORIZED decision before a host plan or mutation can exist",
+   "recovery": "candidate and prior bytes are recorded in an immutable plan before mutation; apply and rollback completion are derived from append-only events and an interrupted action is resumable from authority alone"
+  }
+ },
+ "selected_modules": [
+  {
+   "module_id": "cis.blueprint.manifest",
+   "contract": "contracts/cis.blueprint.manifest.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "reconstruction blueprint as operational input",
+   "evidence_basis": [
+    "ADR-ARCH-001 clause 7(a)",
+    "handoff A26"
+   ]
+  },
+  {
+   "module_id": "cis.contracts.registry",
+   "contract": "contracts/cis.contracts.registry.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "module contract definition and field-level validation",
+   "evidence_basis": [
+    "ADR-ARCH-001 clauses 3,4,5,7(b)",
+    "handoff A9"
+   ]
+  },
+  {
+   "module_id": "cis.authority.store",
+   "contract": "contracts/cis.authority.store.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "sanctioned mutation interface to authority",
+   "evidence_basis": [
+    "handoff A21",
+    "ADR-ARCH-002"
+   ]
+  },
+  {
+   "module_id": "cis.authority.intent",
+   "contract": "contracts/cis.authority.intent.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "verbatim instruction preserved as immutable source evidence",
+   "evidence_basis": [
+    "ADR-ARCH-004 clause 1 and ROLE 1"
+   ]
+  },
+  {
+   "module_id": "cis.authority.continuity",
+   "contract": "contracts/cis.authority.continuity.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "continuity of perspective \u2014 active objective preserved or explicitly superseded",
+   "evidence_basis": [
+    "dev_continuity_events:WB.1:178",
+    "ADR-ARCH-004 clause 1"
+   ]
+  },
+  {
+   "module_id": "cis.authority.evidence",
+   "contract": "contracts/cis.authority.evidence.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "immutable evidence and recorded conflicts",
+   "evidence_basis": [
+    "ADR-ARCH-002 evidence clause",
+    "handoff A12"
+   ]
+  },
+  {
+   "module_id": "cis.authority.authorization",
+   "contract": "contracts/cis.authority.authorization.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "structured execution contract with exact binding",
+   "evidence_basis": [
+    "ADR-ARCH-004 clauses 2,3 and ROLE 3"
+   ]
+  },
+  {
+   "module_id": "cis.authority.runs",
+   "contract": "contracts/cis.authority.runs.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "backend run ledger",
+   "evidence_basis": [
+    "ADR-ARCH-004 ROLE 6",
+    "ADR-SEED-018 run-plane note"
+   ]
+  },
+  {
+   "module_id": "cis.authority.trajectory",
+   "contract": "contracts/cis.authority.trajectory.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "append-only trajectory authority",
+   "evidence_basis": [
+    "handoff A18 Workbench as generated lens",
+    "ADR-ARCH-002"
+   ]
+  },
+  {
+   "module_id": "cis.continuity.classifier",
+   "contract": "contracts/cis.continuity.classifier.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "deterministic classification of an exchange as question, addition, correction or explicit redirection",
+   "evidence_basis": [
+    "dev_continuity_events:WB.1:178"
+   ]
+  },
+  {
+   "module_id": "cis.continuity.retrieval",
+   "contract": "contracts/cis.continuity.retrieval.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "antecedent retrieval in the user's original language",
+   "evidence_basis": [
+    "dev_continuity_events:WB.1:178",
+    "handoff A12"
+   ]
+  },
+  {
+   "module_id": "cis.workbench.service",
+   "contract": "contracts/cis.workbench.service.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "instruction to bounded authorization",
+   "evidence_basis": [
+    "handoff A2 conceptual chain",
+    "ADR-ARCH-004 clauses 1,2,3,6"
+   ]
+  },
+  {
+   "module_id": "cis.workbench.projection",
+   "contract": "contracts/cis.workbench.projection.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "macro and micro trajectory projection with a derived you-are-here marker",
+   "evidence_basis": [
+    "handoff A18",
+    "ADR-ARCH-002 derivative clause"
+   ]
+  },
+  {
+   "module_id": "cis.execution.port",
+   "contract": "contracts/cis.execution.port.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "CIS-owned Layer-2 execution contract",
+   "evidence_basis": [
+    "ADR-ARCH-003 clauses 1,2,3,4",
+    "ADR-ARCH-001 clause 8"
+   ]
+  },
+  {
+   "module_id": "cis.execution.gateway",
+   "contract": "contracts/cis.execution.gateway.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "sole call path to any execution backend, gated on a valid ALLOW",
+   "evidence_basis": [
+    "ADR-ARCH-003 clause 1",
+    "ADR-ARCH-004 clause 2"
+   ]
+  },
+  {
+   "module_id": "cis.execution.adapters.deterministic_mock",
+   "contract": "contracts/cis.execution.adapters.deterministic_mock.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "one replaceable L3 execution backend, deterministic and offline",
+   "evidence_basis": [
+    "ADR-ARCH-001 clause 8",
+    "ADR-ARCH-003 clause 4"
+   ]
+  },
+  {
+   "module_id": "cis.conductor.service",
+   "contract": "contracts/cis.conductor.service.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "single Layer-2 ingress boundary binding every public state-changing transaction to immutable envelope evidence",
+   "evidence_basis": [
+    "ADR-ARCH-002",
+    "ADR-ARCH-004 clauses 1,2",
+    "ADR-SEED-018 governing boundary rule"
+   ]
+  },
+  {
+   "module_id": "cis.interface.api",
+   "contract": "contracts/cis.interface.api.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_001",
+   "capability": "Workbench-facing control surface over the slice",
+   "evidence_basis": [
+    "ADR-SEED-018 L1 and the governing boundary rule"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.task_contract",
+   "contract": "contracts/cis.assurance.task_contract.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
+   "capability": "deterministic template-backed compilation of an immutable FROZEN task contract in its own independent hash domain",
+   "evidence_basis": [
+    "ADR-ARCH-004 clause 3",
+    "ADR-ARCH-001 clause 3"
+   ]
+  },
+  {
+   "module_id": "cis.policy.compiler",
+   "contract": "contracts/cis.policy.compiler.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_005",
+   "capability": "closed-schema MASTER and exact-match TASK policy compilation into a task-contract-bound immutable envelope",
+   "evidence_basis": [
+    "dev_continuity_events:WB.1:180-182 deterministic enforcement correction",
+    "queue item 4.20"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.authority",
+   "contract": "contracts/cis.assurance.authority.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
+   "capability": "single owner of the append-only assurance ledger, reached only through disjoint verifier, reviewer and promotion facades",
+   "evidence_basis": [
+    "ADR-ARCH-001 clause 5",
+    "ADR-ARCH-002",
+    "handoff A21"
+   ]
+  },
+  {
+   "module_id": "cis.policy.authority",
+   "contract": "contracts/cis.policy.authority.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_005",
+   "capability": "single append-only owner of automatically ingested structured policy sources and task-contract-bound compiled envelopes, with atomic admission, integrity and staleness refusal",
+   "evidence_basis": [
+    "ADR-ARCH-001 clause 5",
+    "dev_continuity_events:WB.1:182",
+    "queue item 4.20"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.verifier",
+   "contract": "contracts/cis.assurance.verifier.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
+   "capability": "deterministic verification of one frozen task contract against the evidence actually submitted",
+   "evidence_basis": [
+    "ADR-ARCH-004 clause 5",
+    "handoff A24 evidence_before_completion_claims"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.reviewer",
+   "contract": "contracts/cis.assurance.reviewer.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
+   "capability": "independent review by a separate lineage through its own input port, bounded to three objection cycles",
+   "evidence_basis": [
+    "ADR-ARCH-004 clause 5",
+    "ADR-XDEV-001 as cited by the handoff README"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.promotion",
+   "contract": "contracts/cis.assurance.promotion.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
+   "capability": "record-only promotion decision on the conjunction of a passed verification and a passed review",
+   "evidence_basis": [
+    "ADR-ARCH-004 clause 5",
+    "ADR-SEED-015 enforcement and trust domains"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.projection",
+   "contract": "contracts/cis.assurance.projection.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
+   "capability": "read-only assurance progress projection, separate from proven_slice, with micro-stage visibility and the A-O order reconciliation",
+   "evidence_basis": [
+    "ADR-ARCH-002 derivative clause",
+    "handoff A18"
+   ]
+  },
+  {
+   "module_id": "cis.projection.regeneration_gate",
+   "contract": "contracts/cis.projection.regeneration_gate.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_003",
+   "capability": "fail-closed proof that every declared projection regenerates byte-identically from authority without writing back",
+   "evidence_basis": [
+    "ADR-ARCH-002 derivative clause",
+    "INDEPENDENT_EXTERNAL_REVIEW_AND_PHASE_HANDOFF.md :: A23 STEP 6"
+   ]
+  },
+  {
+   "module_id": "cis.worker.contained_nonroot",
+   "contract": "contracts/cis.worker.contained_nonroot.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_004",
+   "capability": "real nonroot networkless fresh-container execution with recomputed task/policy bindings and a closed mapping from policy obligation labels to independently verified container and host facts, producing candidate evidence but no promotion",
+   "evidence_basis": [
+    "ADR-SEED-015 three-layer process isolation",
+    "ADR-SEED-016 enforcement primitive",
+    "assurance_increment.order_reconciliation letters A-G and O"
+   ]
+  },
+  {
+   "module_id": "cis.host.promotion_gate",
+   "contract": "contracts/cis.host.promotion_gate.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_004",
+   "capability": "decision-enforcing bounded host apply plus authority-only resumable rollback",
+   "evidence_basis": [
+    "ADR-SEED-015 host control boundary",
+    "assurance_increment.order_reconciliation letters M-N"
+   ]
+  },
+  {
+   "module_id": "cis.execution.adapters.contained_worker",
+   "contract": "contracts/cis.execution.adapters.contained_worker.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_005",
+   "capability": "Executes one declared verification of model-authored source inside the sealed nonroot contained worker and returns the result through the Layer-2 port",
+   "evidence_basis": [
+    "dev_continuity_events:4.37:28 - contained verification of real model-authored code, nine gates",
+    "dev_continuity_events:4.37:29 - verdict authority moved outside the untrusted process",
+    "dev_continuity_events:4.37:30 - assurance boundary investigation, CONTRACT_COMPATIBLE",
+    "containers/contained-worker/worker.sh - the six-argument frozen invocation"
+   ]
+  }
+ ],
+ "deferred_modules": [
+  {
+   "module_id": "cis.execution.adapters.<external_harness>",
+   "reconstruction_status": "DEFERRED_NOT_AUTHORIZED",
+   "reason": "ADR-ARCH-003 adopts, evaluates and records no backend. Absence is the status of an unadopted backend, and recording standing would create standing it does not have.",
+   "evidence_basis": [
+    "ADR-ARCH-003 paragraph 3",
+    "handoff A7"
+   ]
+  },
+  {
+   "module_id": "cis.review.cross_lineage_external",
+   "reconstruction_status": "DEFERRED_NEXT_SLICE",
+   "reason": "cis.assurance.reviewer satisfies author-is-not-verifier inside this environment: a separate module, a separate input port, a separate recorded lineage, and a registry-enforced independence from the verifier. What remains deferred is review by a lineage EXTERNAL to this environment, which needs an identity seam that does not exist here.",
+   "evidence_basis": [
+    "ADR-ARCH-004 clause 5",
+    "ADR-XDEV-001 as cited by the handoff README"
+   ]
+  }
+ ],
+ "preserved_capabilities": {
+  "comment": "Handoff A24 \u2014 capabilities that must survive reconstruction, mapped to the module that carries each one in this slice. A capability with no module here is explicitly deferred, not silently dropped.",
+  "immutable_human_intent": [
+   "cis.authority.intent"
+  ],
+  "authority_history_distinction": [
+   "cis.authority.evidence",
+   "cis.authority.continuity"
+  ],
+  "single_owner_authority": [
+   "cis.contracts.registry"
+  ],
+  "sanctioned_mutation_path": [
+   "cis.authority.store"
+  ],
+  "constrained_task_execution": [
+   "cis.authority.authorization",
+   "cis.policy.compiler",
+   "cis.policy.authority",
+   "cis.execution.gateway",
+   "cis.worker.contained_nonroot"
+  ],
+  "deterministic_policy_enforcement": [
+   "cis.policy.compiler",
+   "cis.policy.authority",
+   "cis.execution.gateway",
+   "cis.worker.contained_nonroot"
+  ],
+  "evidence_before_completion_claims": [
+   "cis.authority.runs",
+   "cis.authority.evidence"
+  ],
+  "fail_closed_behaviour": [
+   "cis.execution.gateway",
+   "cis.workbench.service"
+  ],
+  "execution_backend_replaceability": [
+   "cis.execution.port",
+   "cis.execution.gateway"
+  ],
+  "generated_projections": [
+   "cis.workbench.projection",
+   "cis.assurance.projection"
+  ],
+  "projection_regeneration_proof": [
+   "cis.projection.regeneration_gate"
+  ],
+  "workbench_architecture_visibility": [
+   "cis.interface.api",
+   "cis.workbench.projection",
+   "cis.assurance.projection"
+  ],
+  "recovery_cold_start": [
+   "cis.blueprint.manifest",
+   "cis.authority.store",
+   "cis.worker.contained_nonroot",
+   "cis.host.promotion_gate"
+  ],
+  "author_is_not_verifier": [
+   "cis.assurance.verifier",
+   "cis.assurance.reviewer",
+   "cis.contracts.registry"
+  ],
+  "bounded_assurance_objections": [
+   "cis.assurance.reviewer",
+   "cis.assurance.authority"
+  ],
+  "immutable_task_contract": [
+   "cis.assurance.task_contract",
+   "cis.assurance.authority"
+  ],
+  "promotion_as_decision_not_action": [
+   "cis.assurance.promotion"
+  ],
+  "promotion_action_enforcement_and_rollback": [
+   "cis.host.promotion_gate"
+  ],
+  "deferred_to_a_later_slice": {
+   "external_development_continuity": "cis.review.cross_lineage_external",
+   "destination_extensibility_wiasw": "no destination adapter exists yet",
+   "security_trust_boundaries": "this environment runs offline in-process and nothing listens by default; cis serve opens an unauthenticated loopback operator console with no caller identity, which is why it is not an external-agent endpoint, and no credential exists to protect"
+  }
+ },
+ "acceptance_criteria": [
+  "An ordinary question does not change the active objective.",
+  "A vague memory fragment retrieves an antecedent in its original language.",
+  "Only an explicit redirection supersedes the active objective, and the superseded objective is retained.",
+  "A retrieved antecedent is contextual continuity evidence and never an execution-authorization basis; token overlap grants no permission.",
+  "Execution authority derives only from canonical accepted authority for the target module \u2014 the validated selected-module entry and its non-empty evidence_basis, the module contract and reconstruction status, an independently established active objective, and no recorded evidence conflict.",
+  "Resubmitting the same request supplies no new canonical authority and cannot change HOLD to ALLOW; a repeated ALLOW is bounded identically to the first.",
+  "A request may not supply the objective it is authorized under.",
+  "A selected module with an absent, empty or blank evidence_basis is refused at manifest validation, and fails closed at authorization if it reaches the Workbench anyway.",
+  "required_evidence on an ALLOW names the target module's canonical accepted evidence_basis, never a retrieved antecedent, prior request or prior run id.",
+  "Retrieval prefers original human intent over records generated from execution when both match a cue.",
+  "A mutated or stale authorization fails closed.",
+  "No backend runs without a valid ALLOW whose binding recomputes from authority.",
+  "A second backend adapter is added with no change above the Layer-2 port.",
+  "No name, port, path, configuration file or log format of any backend appears above the adapter boundary.",
+  "Authority is append-only: UPDATE and DELETE are refused by the store.",
+  "The you-are-here marker is derived from authority, never stored twice.",
+  "The whole slice runs with sockets disabled.",
+  "The plain-language reconstruction journey derives what is current, what is proven and what is next from this manifest and the trajectory authority, and no second record of progress exists for it to drift from.",
+  "Every plain-language sentence the journey shows is recorded in this manifest rather than in presentation code, and a journey step naming a capability, module or stage this manifest does not declare is refused at load.",
+  "A task contract is created FROZEN, is hashed in its own domain, links forward to an existing authorization, and alters no slice-1 table.",
+  "A task contract may narrow its compiled path envelope and may never widen it; an absolute path, an escaping path, a path outside the target module's subtree and any mention of the reference environment are refused.",
+  "A task contract whose independent digest does not recompute is refused rather than assessed, by the verifier and by the reviewer separately.",
+  "Every policy-governed contained-worker request inherits all applicable MASTER restrictions and only exact-match additive or narrowing TASK policy; missing, conflicting, widened, stale, forged or mismatched envelopes refuse before backend entry.",
+  "Every governed dispatch automatically admits the cumulative closed-schema operational policy catalog idempotently, derives its selector only from frozen task facts and a trusted profile, compiles the current whole-set-validated policy into an immutable envelope, and refuses an old task contract when applicable policy has changed.",
+  "Every contained-worker policy check and evidence label has one closed code-defined mapping to underlying verified facts; container claims cannot create host facts, and only a label emitted as verified after all mapped facts pass can satisfy the gateway.",
+  "Verification is deterministic over immutable submitted evidence, and absent evidence produces a recorded VERIFIED_FAIL rather than silence.",
+  "The reviewer assembles its own packet from authority, recomputes every digest it relies on, imports nothing from the verifier, and is registry-enforced to be unable to reach it through any chain of dependencies.",
+  "Promotion is PROMOTION_AUTHORIZED only when verification passed and review passed; review pending, review objections, verification failure and escalation each produce PROMOTION_DENIED with a distinct reason code.",
+  "At most three objection cycles exist for any task contract; the third escalates, and a fourth is refused at the API, at the ledger and by SQL constraint.",
+  "A promotion decision records a decision and performs no host action; host_action is constrained to NONE_RECORD_ONLY and the promotion module can reach no host.",
+  "Assurance progress is exposed as its own projection and read-only API surface; proven_slice keeps its slice-1 meaning and its counts unchanged.",
+  "No A-O boundary proof is waived: every MANDATORY_OUTSTANDING letter gates the later real nonroot contained-worker capability and is reported as outstanding.",
+  "Every declared projection surface regenerates twice to identical canonical hashes from unchanged authority, regeneration leaves the complete authority digest unchanged, and the combined surface hash survives a file-backed cold start."
+ ]
 }

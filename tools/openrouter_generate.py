@@ -1,41 +1,22 @@
-"""A real model-backed execution backend, reached through one hosted API.
+"""EXTERNAL DEVELOPMENT TOOLING. NOT PART OF THE DURABLE CIS RECONSTRUCTION.
 
-This is Layer 3: replaceable execution infrastructure, not part of the durable
-definition of CIS (ADR-ARCH-001 clause 8). It is the first backend CIS adopts
-under the ADR-ARCH-003 boundary, and it is deliberately the thinnest thing that
-can author source code: one request, one response, no agent loop, no tools, no
-retries, no fallback to another tier.
+This module lives in tools/ and is deliberately OUTSIDE src/cis. ADR-ARCH-003
+records that no alternative backend is adopted, evaluated or recorded, and the
+clean room's own tests enforce it: test_no_module_imports_a_network_or_model_library
+and test_no_foreign_backend_is_named_anywhere_in_the_slice both scan src/ and
+would fail if this file lived there. It previously did, which broke both
+invariants at commit cbb11e7. ADR-ARCH-003 IS PRESERVED UNAMENDED and neither
+test was weakened; the file was moved instead.
 
-ADR-ARCH-003 compliance, clause by clause:
+It imports NOTHING from cis and implements no Layer-2 interface. It produces a
+candidate artifact plus its provenance record, and hands both to CIS through an
+authorized submission path. It never writes to the authoritative evidence store.
 
-  1. This module is reached only through ``cis.execution.gateway``; nothing
-     above Layer 2 imports it or names the provider.
-  2. No port, file path, configuration file or log format of the provider
-     appears above this module. The provider's identity lives here and in the
-     adapter id alone.
-  3. Credentials and liveness arrive through a DECLARED INTERFACE: a caller
-     supplies ``credential_provider`` (and optionally ``transport``) at
-     construction. This module never reads a backend's private files, never
-     parses a log, and never searches the filesystem for a key. The default
-     credential provider reads one named environment variable, which is the
-     declared interface for a hosted API that has no private files on this
-     host.
-  4. Its ``replacement_contract`` is declared in
-     ``contracts/cis.execution.adapters.openrouter_model.contract.json``.
-  5. Acceptance test H1 applies to the family, not to this module alone.
-
-The cost ceiling of the recorded routing standard (4.37 revision 20 clause 6)
-is enforced here, not by convention: ``max_output_tokens`` bounds the response,
-``timeout_seconds`` bounds the call, and there is exactly one attempt. There is
-no silent escalation to a more expensive model, and the adapter cannot raise
-its own budget.
-
-Model identity confers no authority (clause 4 of the same standard). What this
-backend returns is a CANDIDATE. It is verified, independently reviewed and
-promoted by modules that do not depend on it, exactly as the mock backend's
-output is.
+PROVENANCE PRESERVED FOR EVERY GENERATION: provider identity, exact model id,
+generation reference, prompt and completion token counts, artifact sha256, and
+the authorization binding the caller supplies. Those are what let a later
+verification be bound to the exact artifact a named model actually produced.
 """
-
 from __future__ import annotations
 
 import hashlib
@@ -45,8 +26,14 @@ import urllib.error
 import urllib.request
 from typing import Any, Callable, Mapping, Sequence
 
-from ...errors import ExecutionRefused
-from ..port import ExecutionPort, ExecutionRequest, ExecutionResult
+
+class GenerationRefused(RuntimeError):
+    """External tooling's own refusal. Not a CIS error type: this module is
+    outside the reconstruction and must not import from it."""
+
+    def __init__(self, message, **detail):
+        super().__init__(message)
+        self.detail = detail
 
 #: The provider endpoint. Named here and nowhere above Layer 2.
 _ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
@@ -80,7 +67,7 @@ def _default_credential_provider() -> str:
     """
     value = os.environ.get(_CREDENTIAL_ENV, "").strip()
     if not value:
-        raise ExecutionRefused(
+        raise GenerationRefused(
             "no provider credential available through the declared interface",
             declared_interface=_CREDENTIAL_ENV,
         )
@@ -117,10 +104,8 @@ def _strip_fences(text: str) -> str:
     return "\n".join(lines).strip()
 
 
-class OpenRouterModelAdapter(ExecutionPort):
+class OpenRouterGenerator:
     """Authors one file's source through a hosted model, under hard bounds."""
-
-    adapter_id = "openrouter_model"
 
     #: Declared, not inferred (ADR-ARCH-003 clause 3).
     _CAPABILITIES = ("author_module_source",)
@@ -163,18 +148,18 @@ class OpenRouterModelAdapter(ExecutionPort):
         request.verify_token()
 
         if request.operation not in self._CAPABILITIES:
-            raise ExecutionRefused(
+            raise GenerationRefused(
                 "operation is not declared by this backend",
                 operation=request.operation,
             )
         if not request.allowed_scope:
-            raise ExecutionRefused(
+            raise GenerationRefused(
                 "request carries no allowed scope", request_id=request.request_id
             )
 
         specification = str(request.payload.get("specification", "")).strip()
         if not specification:
-            raise ExecutionRefused(
+            raise GenerationRefused(
                 "request carries no specification for the model to author",
                 request_id=request.request_id,
             )
@@ -204,7 +189,7 @@ class OpenRouterModelAdapter(ExecutionPort):
             # A provider failure is a recorded, resumable failure. It does not
             # replay a spent authorization and does not fall back to another
             # tier (routing standard clauses 6 and 7).
-            raise ExecutionRefused(
+            raise GenerationRefused(
                 "provider call did not succeed",
                 request_id=request.request_id,
                 http_status=status,
@@ -214,7 +199,7 @@ class OpenRouterModelAdapter(ExecutionPort):
             parsed = json.loads(raw.decode("utf-8"))
             content = parsed["choices"][0]["message"]["content"]
         except (ValueError, KeyError, IndexError, UnicodeDecodeError) as exc:
-            raise ExecutionRefused(
+            raise GenerationRefused(
                 "provider response was not in the declared shape",
                 request_id=request.request_id,
                 detail=type(exc).__name__,
@@ -222,7 +207,7 @@ class OpenRouterModelAdapter(ExecutionPort):
 
         source = _strip_fences(content or "")
         if not source:
-            raise ExecutionRefused(
+            raise GenerationRefused(
                 "provider returned no source", request_id=request.request_id
             )
 
