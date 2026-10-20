@@ -58,6 +58,7 @@ from ..errors import VerificationRefused
 from .authority import (
     AssuranceAuthority, VERIFIED_FAIL, VERIFIED_PASS, VERIFIER_MODULE,
 )
+from .execution_input import verify_row as verify_execution_input_row
 from .task_contract import verify_row
 
 #: Checks the verifier always performs, over and above a task contract's own
@@ -80,6 +81,14 @@ SUPPORTED_CHECKS: frozenset[str] = frozenset({
     "contract_registry_valid",
     "blueprint_baseline_matches",
     "canonical_authorization_basis_present",
+    "execution_input_binding_recomputes",
+    "candidate_source_binding_recomputes",
+    "vector_contract_binding_recomputes",
+    "authorized_entrypoint_binding_recomputes",
+    "worker_image_identity_recomputes",
+    "trusted_runner_identity_matches_expected",
+    "worker_identity_matches_expected",
+    "result_classification_recorded",
 })
 
 REASON_ALL_CHECKS_COVERED = "ALL_REQUIRED_CHECKS_COVERED"
@@ -92,19 +101,102 @@ REASON_NO_CANONICAL_BASIS = "NO_CANONICAL_AUTHORIZATION_BASIS"
 REASON_MISSING_ARTIFACT = "REQUIRED_ARTIFACT_ABSENT"
 REASON_REGISTRY_INVALID = "CONTRACT_REGISTRY_INVALID"
 REASON_UNSUPPORTED_CHECK = "REQUIRED_CHECK_NOT_SUPPORTED_BY_VERIFIER"
+REASON_EXECUTION_INPUT_MISSING = "EXECUTION_INPUT_BINDING_MISSING_OR_MISMATCHED"
+REASON_CANDIDATE_BINDING = "CANDIDATE_SOURCE_BINDING_MISMATCH"
+REASON_VECTOR_BINDING = "VECTOR_CONTRACT_BINDING_MISMATCH"
+REASON_ENTRYPOINT_BINDING = "AUTHORIZED_ENTRYPOINT_BINDING_MISMATCH"
+REASON_IMAGE_BINDING = "WORKER_IMAGE_IDENTITY_MISMATCH"
+REASON_RUNNER_BINDING = "TRUSTED_RUNNER_IDENTITY_MISMATCH"
+REASON_WORKER_BINDING = "WORKER_IDENTITY_MISMATCH"
+REASON_RESULT_CLASSIFICATION = "RESULT_CLASSIFICATION_INVALID_OR_UNBOUND"
 
 #: Which reason code a failing check reports. Ordered, so a submission that
 #: fails several checks always reports the same one.
 _REASON_FOR_CHECK: tuple[tuple[str, str], ...] = (
+    # Preserve the established fail-closed disposition: an incomplete
+    # submission is first reported as missing its declared artifact set.
+    ("submitted_artifacts_present", REASON_MISSING_ARTIFACT),
     ("submitted_evidence_present", REASON_MISSING_EVIDENCE),
     ("submitted_execution_completed", REASON_EXECUTION_NOT_COMPLETED),
     ("submitted_evidence_digest_recomputes", REASON_EVIDENCE_DIGEST_MISMATCH),
-    ("submitted_artifacts_present", REASON_MISSING_ARTIFACT),
     ("authorization_binding_recomputes", REASON_BINDING_MISMATCH),
     ("blueprint_baseline_matches", REASON_BASELINE_MOVED),
     ("canonical_authorization_basis_present", REASON_NO_CANONICAL_BASIS),
     ("contract_registry_valid", REASON_REGISTRY_INVALID),
+    ("execution_input_binding_recomputes", REASON_EXECUTION_INPUT_MISSING),
+    ("candidate_source_binding_recomputes", REASON_CANDIDATE_BINDING),
+    ("vector_contract_binding_recomputes", REASON_VECTOR_BINDING),
+    ("authorized_entrypoint_binding_recomputes", REASON_ENTRYPOINT_BINDING),
+    ("worker_image_identity_recomputes", REASON_IMAGE_BINDING),
+    ("trusted_runner_identity_matches_expected", REASON_RUNNER_BINDING),
+    ("worker_identity_matches_expected", REASON_WORKER_BINDING),
+    ("result_classification_recorded", REASON_RESULT_CLASSIFICATION),
 )
+
+_ATTESTATION_BINDING_BASE_KEYS = frozenset({
+    "attestation_sha256", "result_hash", "result_record_sha256"})
+_ATTESTATION_BINDING_WITH_USAGE_KEYS = (
+    _ATTESTATION_BINDING_BASE_KEYS | {"usage"})
+_USAGE_KEYS = frozenset({"wall_time_ms", "tokens_used", "cost_micros"})
+
+
+def _usage_is_valid(usage: Any) -> bool:
+    """Mirror the exact usage validation applied elsewhere to this same
+    gateway-bound mapping, so the verifier accepts only what a real
+    measurement can look like."""
+    return (
+        isinstance(usage, Mapping)
+        and set(usage) == _USAGE_KEYS
+        and all(isinstance(value, int) and not isinstance(value, bool)
+                and value >= 0 for value in usage.values())
+    )
+
+
+_ATTESTATION_KEYS = frozenset({
+    "schema", "operation", "adapter", "image", "worker_operation",
+    "execution_input_hash", "task_contract_id", "task_contract_hash",
+    "entrypoint", "verdict", "classification", "attestation_valid",
+    "attestation_failures", "worker_exit", "source_sha256",
+    "vector_contract_sha256", "task_contract_bundle_sha256",
+    "authorization_binding_hash", "trusted_runner_sha256", "worker_sha256",
+    "declared_vectors", "allowed_scope", "forbidden_actions", "stopped_at",
+    "returned_to",
+})
+
+
+def _parse_attestation(evidence: Mapping[str, Any] | None,
+                       run: Mapping[str, Any] | None) -> dict[str, str] | None:
+    """Parse only the adapter's closed, unique key/value attestation schema."""
+    if evidence is None:
+        return None
+    text = evidence.get("original_language")
+    if not isinstance(text, str) or not text:
+        return None
+    try:
+        binding = json.loads(str(evidence["content"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not isinstance(binding, dict):
+        return None
+    keys = set(binding)
+    if keys == _ATTESTATION_BINDING_WITH_USAGE_KEYS:
+        if not _usage_is_valid(binding["usage"]):
+            return None
+    elif keys != _ATTESTATION_BINDING_BASE_KEYS:
+        return None
+    if (binding["attestation_sha256"] != sha256_text(text)
+            or run is None
+            or binding["result_hash"] != str(run["result_hash"])):
+        return None
+    parsed: dict[str, str] = {}
+    for line in text.splitlines():
+        key, separator, value = line.partition("=")
+        if not separator or not key or key in parsed:
+            return None
+        parsed[key] = value.strip()
+    if set(parsed) != _ATTESTATION_KEYS:
+        return None
+    return parsed
 
 
 @dataclass(frozen=True)
@@ -115,9 +207,12 @@ class VerifierPacket:
     authorization: Mapping[str, Any] | None
     run: Mapping[str, Any] | None
     evidence: Mapping[str, Any] | None
+    execution_input: Mapping[str, Any] | None
+    attestation: Mapping[str, str] | None
     artifacts: Mapping[str, Any]
     recomputed_task_contract_hash: str
     recomputed_binding_hash: str | None
+    recomputed_execution_input_hash: str | None
 
     @property
     def input_id(self) -> str:
@@ -168,18 +263,36 @@ class VerifierInputPort:
                 (str(run["evidence_id"]),),
             )
 
-        artifacts = self._artifacts(contract, run, evidence)
+        execution_input = self._store.one(
+            "SELECT * FROM task_execution_inputs WHERE task_contract_id = ?",
+            (task_contract_id,),
+        )
+        recomputed_execution_input_hash = None
+        if execution_input is not None:
+            # Like task-contract corruption, authority corruption is refused,
+            # never legitimised as a VERIFIED_FAIL assessment.
+            recomputed_execution_input_hash = verify_execution_input_row(
+                execution_input)
+        attestation = _parse_attestation(
+            evidence.as_dict() if evidence else None,
+            run.as_dict() if run else None)
+
+        artifacts = self._artifacts(contract, run, evidence, attestation)
         return VerifierPacket(
             task_contract=contract.as_dict(),
             authorization=authorization.as_dict() if authorization else None,
             run=run.as_dict() if run else None,
             evidence=evidence.as_dict() if evidence else None,
+            execution_input=(execution_input.as_dict()
+                             if execution_input else None),
+            attestation=attestation,
             artifacts=artifacts,
             recomputed_task_contract_hash=recomputed_task_contract_hash,
             recomputed_binding_hash=recomputed_binding,
+            recomputed_execution_input_hash=recomputed_execution_input_hash,
         )
 
-    def _artifacts(self, contract, run, evidence) -> dict:
+    def _artifacts(self, contract, run, evidence, attestation) -> dict:
         """The declared artifacts, each present or explicitly absent."""
         target = str(contract["target_module_id"])
         module_contract_hash = None
@@ -192,6 +305,16 @@ class VerifierInputPort:
             ),
             "run_result_hash": str(run["result_hash"]) if run else None,
             "module_contract_hash": module_contract_hash,
+            "execution_input_hash": (
+                attestation.get("execution_input_hash") if attestation else None
+            ),
+            "candidate_source_sha256": (
+                attestation.get("source_sha256") if attestation else None
+            ),
+            "vector_contract_sha256": (
+                attestation.get("vector_contract_sha256")
+                if attestation else None
+            ),
         }
 
     def persist(self, packet: VerifierPacket):
@@ -270,6 +393,85 @@ def assess(packet: VerifierPacket, *, baseline_hash: str,
         canonical_basis_present)
     results["contract_registry_valid"] = bool(registry_valid)
 
+    exi = packet.execution_input
+    attestation = packet.attestation
+    results["execution_input_binding_recomputes"] = bool(
+        exi is not None
+        and packet.recomputed_execution_input_hash is not None
+        and packet.recomputed_execution_input_hash
+        == str(exi["execution_input_hash"])
+        and str(exi["task_contract_id"]) == str(contract["task_contract_id"])
+        and str(exi["task_contract_hash"]) == str(contract["task_contract_hash"])
+        and str(exi["authorization_binding_hash"])
+        == str(contract["authorization_binding_hash"])
+        and attestation is not None
+        and attestation["execution_input_hash"]
+        == str(exi["execution_input_hash"])
+        and attestation["task_contract_id"] == str(contract["task_contract_id"])
+        and attestation["task_contract_hash"] == str(contract["task_contract_hash"])
+        and attestation["authorization_binding_hash"]
+        == str(contract["authorization_binding_hash"])
+    )
+    results["candidate_source_binding_recomputes"] = bool(
+        exi is not None and attestation is not None
+        and attestation["source_sha256"] == str(exi["candidate_sha256"])
+    )
+    results["vector_contract_binding_recomputes"] = bool(
+        exi is not None and attestation is not None
+        and attestation["vector_contract_sha256"]
+        == str(exi["vector_contract_sha256"])
+    )
+    results["authorized_entrypoint_binding_recomputes"] = bool(
+        exi is not None and attestation is not None
+        and attestation["entrypoint"] == str(exi["authorized_entrypoint"])
+    )
+    results["worker_image_identity_recomputes"] = bool(
+        exi is not None and attestation is not None
+        and attestation["image"] == str(exi["worker_image"])
+    )
+    results["trusted_runner_identity_matches_expected"] = bool(
+        exi is not None and attestation is not None
+        and attestation["trusted_runner_sha256"]
+        == str(exi["expected_trusted_runner_sha256"])
+    )
+    results["worker_identity_matches_expected"] = bool(
+        exi is not None and attestation is not None
+        and attestation["worker_sha256"]
+        == str(exi["expected_worker_sha256"])
+    )
+    closed_result = {
+        "SOURCE_PASS": ("SOURCE_PASS", "completed", 0, 0, "true", "none"),
+        "SOURCE_FAIL": ("SOURCE_FAIL", "failed", 1, 1, "true", "none"),
+        "HARNESS_FAILURE": (
+            "HARNESS_FAILURE", "failed", 2, None, "false", None),
+        "RESOURCE_EXHAUSTION": (
+            "HARNESS_FAILURE", "failed", 3, 124, "false", None),
+    }
+    classification = (attestation.get("classification")
+                      if attestation else None)
+    expected_result = closed_result.get(classification)
+    result_binding = False
+    if (attestation is not None and packet.run is not None
+            and expected_result is not None):
+        verdict, status, exit_code, worker_exit, valid, failures = expected_result
+        try:
+            observed_worker_exit = int(attestation["worker_exit"])
+        except ValueError:
+            observed_worker_exit = -999
+        result_binding = bool(
+            attestation["schema"] == "cis-contained-adapter-attestation-v1"
+            and attestation["operation"] == "verify_authored_source"
+            and attestation["worker_operation"] == "verify-authored-source"
+            and attestation["verdict"] == verdict
+            and str(packet.run["status"]) == status
+            and int(packet.run["exit_code"]) == exit_code
+            and attestation["attestation_valid"] == valid
+            and (worker_exit is None or observed_worker_exit == worker_exit)
+            and (failures is None
+                 or attestation["attestation_failures"] == failures)
+        )
+    results["result_classification_recorded"] = result_binding
+
     findings = [
         {"check": name, "passed": bool(results.get(name, False)),
          "supported": name in SUPPORTED_CHECKS}
@@ -290,12 +492,19 @@ def assess(packet: VerifierPacket, *, baseline_hash: str,
                                      "unsupported": unsupported}],
         }
 
-    for name in performed:
-        if not results.get(name, False):
-            reason = next(
-                (code for check, code in _REASON_FOR_CHECK if check == name),
-                REASON_MISSING_EVIDENCE,
-            )
+    # Failure precedence is explicit rather than an accidental consequence of
+    # alphabetically sorting check names. This keeps a missing/malformed
+    # submission from masquerading as a more specific binding mismatch.
+    ordered_failures = [
+        (name, reason) for name, reason in _REASON_FOR_CHECK
+        if name in performed and not results.get(name, False)
+    ]
+    ordered_failures.extend(
+        (name, REASON_MISSING_EVIDENCE) for name in performed
+        if not results.get(name, False)
+        and name not in {check for check, _ in _REASON_FOR_CHECK}
+    )
+    for name, reason in ordered_failures:
             return {
                 "outcome": VERIFIED_FAIL,
                 "reason_code": reason,

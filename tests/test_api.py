@@ -42,7 +42,9 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(len(body["contracts"]), support.expected_module_count())
         for module_id, contract in body["contracts"].items():
             self.assertEqual(len(contract), 16, module_id)
-        self.assertEqual(len(body["authority_owners"]), 21)
+        self.assertEqual(
+            len(body["authority_owners"]),
+            len(self.wb.blueprint.registry.authority_owners()))
 
     def test_an_unknown_route_returns_the_route_list(self):
         response = self.get("/nope")

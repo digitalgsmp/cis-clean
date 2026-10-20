@@ -53,8 +53,9 @@ work that claims to serve it.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
+from ..assurance.issuance import AuthoredSourceIssuer
 from ..authority.authorization import (
     ALLOW, AuthorizationAuthority, HOLD, REASON_EVIDENCE_CONFLICT,
     REASON_IN_AUTHORITY, REASON_NO_CANONICAL_BASIS,
@@ -128,7 +129,7 @@ class Workbench:
         self.runs = RunAuthority(store)
         self.trajectory = TrajectoryAuthority(store)
         self.policy_resolver = AutomaticPolicyResolver(store)
-        self.gateway = gateway if gateway is not None else ExecutionGateway(
+        provisional_gateway = gateway if gateway is not None else ExecutionGateway(
             authorizations=self.authorizations,
             runs=self.runs,
             evidence=self.evidence,
@@ -136,6 +137,18 @@ class Workbench:
             policy_envelope_resolver=self.policy_resolver.resolve,
             authorization_check_resolver=self.execution_preflight_checks,
         )
+        self.authored_source_issuance = AuthoredSourceIssuer(
+            store=store, blueprint=self.blueprint,
+            authorizations=self.authorizations, gateway=provisional_gateway)
+        self.gateway = provisional_gateway.with_authority_resolvers(
+            task_contract_resolver=(
+                self.authored_source_issuance.task_contract_for_authorization),
+            execution_input_resolver=(
+                self.authored_source_issuance.execution_input_for_task),
+        )
+        # Issuance must query the final gateway carrying the same resolvers and
+        # selected adapter that dispatch will use.
+        self.authored_source_issuance.bind_gateway(self.gateway)
         self.projection = TrajectoryProjection(
             blueprint=self.blueprint,
             trajectory=self.trajectory,
@@ -433,7 +446,9 @@ class Workbench:
             conflict_count=len(conflicts),
         )
 
-        scope = self._scope_for(verdict=verdict, target=target, basis=basis)
+        scope = self._scope_for(
+            verdict=verdict, target=target, basis=basis,
+            operation=self._operation_for(verbatim, target))
 
         row = self.authorizations.record(
             authorization_id=authorization_id,
@@ -543,8 +558,17 @@ class Workbench:
                 "basis, an objective established independently of this request "
                 "governs, and the scope below bounds the work")
 
+    @staticmethod
+    def _operation_for(verbatim: str, target: str | None) -> str:
+        """Derive the operation from a closed human-readable command form."""
+        if target is not None and verbatim.strip().lower().startswith(
+                "verify authored source for "):
+            return "verify_authored_source"
+        return "reconstruct_module"
+
     def _scope_for(self, *, verdict: str, target: str | None,
-                   basis: CanonicalBasis | None) -> dict:
+                   basis: CanonicalBasis | None,
+                   operation: str = "reconstruct_module") -> dict:
         if verdict != ALLOW or target is None or basis is None:
             return {
                 "operation": "none",
@@ -557,7 +581,7 @@ class Workbench:
             }
         contract = self.blueprint.registry.get(target)
         return {
-            "operation": "reconstruct_module",
+            "operation": operation,
             # Scope is derived from the module's own contract, so a broader
             # contract cannot be written by the requester to widen it.
             "allowed_scope": [f"module:{target}", f"layer:{contract.layer}"],
@@ -575,6 +599,22 @@ class Workbench:
             "stopping_condition": contract.verification,
             "return_point": "workbench:trajectory",
         }
+
+    def prepare_authored_source_verification(
+            self, authorization_id: str, *, candidate_source: bytes | str,
+            vectors: Sequence[Mapping[str, Any]], entrypoint: str) -> dict:
+        """Freeze and bind one production authored-source verification.
+
+        The caller supplies only the subject and its declared vectors. The
+        selected execution backend supplies the immutable image, trusted
+        runner and worker identities through the Layer-2 gateway. Repeating an
+        identical preparation returns the existing immutable records; any
+        attempted replacement under the same authorization refuses.
+        """
+        return self.authored_source_issuance.issue(
+            authorization_id, candidate_source=candidate_source,
+            vectors=vectors, entrypoint=entrypoint,
+            active_objective_id=self.continuity.active_objective_id())
 
     def _micro(self, transaction_id: str, stage: str, event_type: str, *,
                module_id: str | None = None,

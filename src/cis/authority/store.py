@@ -159,6 +159,28 @@ class AuthorityStore:
         # Automatic policy-source ingestion increment (migration 0008). One
         # append-only row per ingested MASTER/TASK policy document.
         "policy_sources",
+        # Execution-input increment (migration 0009). One immutable binding of
+        # the exact inputs a future contained verification would run over, per
+        # frozen task contract.
+        "task_execution_inputs",
+        # Slice-6 operational self-assessment.  A verified objection is
+        # translated into a bounded recovery specification, not permission.
+        "operational_assessments",
+        # Slice-7 bounded recovery.  One content-addressed row per carried-out
+        # replacement-candidate recovery, forward-linked to the assessment
+        # that required it and the fresh child it produced.
+        "recovery_attempts",
+        # Layer-2 worker supervision. Plans and attempt events are separate:
+        # the plan authorizes no work and an event is not assurance evidence.
+        "worker_supervision_plans", "worker_attempt_events",
+        # Unit 8A1 worker-model sessions, opened from an already-verified
+        # supervision route. Header, request and event are three separate
+        # append-only tables for the same reason as the pair above.
+        "worker_sessions", "worker_model_requests", "worker_session_events",
+        # Unit 8A correction (migration 0014). A durable, provider-neutral
+        # logical session and the route-bound legs explicitly attached to it
+        # are separate append-only tables from the route-bound session itself.
+        "worker_logical_sessions", "worker_session_legs",
     )
 
     def _max_seq(self) -> int:

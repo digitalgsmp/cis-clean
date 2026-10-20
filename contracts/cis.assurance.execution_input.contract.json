@@ -1,0 +1,39 @@
+{
+  "module_id": "cis.assurance.execution_input",
+  "responsibility": "Appends one immutable, content-addressed binding of the exact candidate source, vector contract and worker identity a verify_authored_source task runs over, exactly once per frozen task contract.",
+  "layer": "L2",
+  "owned_authority": [
+    "task_execution_inputs"
+  ],
+  "reads": [
+    "task_contracts",
+    "task_execution_inputs"
+  ],
+  "writes": [
+    "task_execution_inputs"
+  ],
+  "mutation_interface": "ExecutionInputAuthority.append through AuthorityStore.insert",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.assurance.authority"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.execution.gateway",
+    "cis.worker.contained_nonroot",
+    "cis.execution.adapters.contained_worker",
+    "cis.execution.adapters.deterministic_mock"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process; no filesystem, network or host-action access beyond the authority store",
+  "failure_boundary": "fail_closed — an unknown or non-recomputing task contract, a task_contract_hash or authorization_binding_hash that does not match the referenced contract, a candidate or vector-contract digest that does not match the exact bytes beside it, a blank entrypoint, a worker image that is not an immutable sha256 digest identity (sha256: followed by 64 lowercase hex characters, never a mutable tag), an expected trusted-runner or worker digest that is not exactly 64 lowercase hex characters, and a task contract that already carries a binding all refuse before a row is appended",
+  "recovery_behavior": "One binding per task contract, ever — task_contract_id is UNIQUE in SQL and checked again in code, so a retry after a successful append finds the existing row and refuses rather than appending a second, and a refused append leaves no partial row because the single insert either fully succeeds or is rejected",
+  "replacement_contract": "A replacement must remain the single owner of task_execution_inputs, store the exact candidate and vector-contract bytes beside their own independently recomputed digests, hash into a domain tag distinct from every other CIS hash scheme, bind forward to the frozen task contract without re-deriving its facts, refuse rather than overwrite a second binding for one task contract, and expose a row-level digest recomputation any independent reader can call without trusting the row on its own word",
+  "evidence_produced": [
+    "one immutable task_execution_inputs row per frozen task contract, carrying its own independent hash domain",
+    "an ExecutionInputRefused naming the task contract and the mismatched fact that caused the refusal",
+    "an ExecutionInputTampered whenever a stored row's hash domain, stored-byte digests or binding hash do not recompute",
+    "a deterministic execution_input_id derived from the task_contract_id alone"
+  ],
+  "verification": "python3 -m unittest tests.test_execution_input -v"
+}

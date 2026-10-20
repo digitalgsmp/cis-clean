@@ -1,0 +1,47 @@
+{
+  "module_id": "cis.execution.worker_supervisor",
+  "responsibility": "Sole owner of immutable worker-supervision plans and attempt events — binding ordered fallback routes to distinct existing ALLOW authorizations, fixed per-route budgets, checkpoints, a closed failure taxonomy and deterministic circuit state without dispatching or accepting worker self-report as assurance — and host of resolve_route, the one read-only seam a gateway's supervision-route resolver may be bound to, and SupervisedExecutionCoordinator, a bounded resumable retry/fallback walk that starts only the next ordered route, dispatches it exactly once through the gateway's existing supervised path, maps the gateway's six typed refusals and a returned failed run onto that same closed failure taxonomy, and resumes an interrupted attempt from durable evidence instead of redispatching",
+  "layer": "L2",
+  "owned_authority": [
+    "worker_supervision_plans",
+    "worker_attempt_events"
+  ],
+  "reads": [
+    "execution_authorizations",
+    "backend_runs",
+    "evidence_records"
+  ],
+  "writes": [
+    "worker_supervision_plans",
+    "worker_attempt_events"
+  ],
+  "mutation_interface": "WorkerSupervisorAuthority.create_plan, start, checkpoint and finish append through AuthorityStore; get_plan, verify_plan, routes, events and resolve_route are read-only; SupervisedExecutionCoordinator.run drives start and finish through the same WorkerSupervisorAuthority and never writes any table directly",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.authority.authorization",
+    "cis.authority.runs",
+    "cis.authority.evidence",
+    "cis.execution.gateway"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.workbench.service",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion",
+    "cis.execution.adapters.contained_worker"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process deterministic authority state machine plus a bounded coordinator over the existing gateway; no model, network, backend invocation or host action is performed directly by this module",
+  "failure_boundary": "fail_closed — unknown, non-ALLOW, non-recomputing, duplicate or differently scoped authorizations; malformed or nonpositive budgets; out-of-order transitions; checkpoints outside an active attempt; unknown failure classes; budget/classification disagreement; success without an exact completed gateway run and evidence binding; terminal reinterpretation; and an open circuit all refuse. The coordinator additionally fails closed, propagating rather than converting to a worker failure, on any structural plan or resolver refusal (an unverifiable plan, an out-of-range route, a malformed resolved route); it converts only the gateway's six typed ExecutionRefused subclasses and a returned failed backend run into the closed failure taxonomy, and refuses outright if a resumed run's recorded evidence carries no usage mapping or a malformed one",
+  "recovery_behavior": "Plans and identical events are content-addressed and idempotent; fallback advances only after the preceding distinct authorization terminates as FAILED, checkpoints preserve resumable artifact identity, and a circuit opened at the declared consecutive-failure threshold prevents further starts. The coordinator never replays a recorded terminal event; an attempt left STARTED with a gateway claim but no backend run resumes as empty_or_incomplete_output without redispatching, and an attempt left STARTED with a completed or failed backend run resumes by independently reading and validating the exact usage mapping durably recorded in that run's evidence rather than dispatching again",
+  "replacement_contract": "A replacement must preserve one-ALLOW-per-attempt by requiring distinct preauthorized routes; independently verify common objective, transaction, target and operation; record immutable positive wall-time, token and cost budgets; enforce the same closed event and failure vocabularies and ordered state transitions; bind success to an existing matching completed gateway run and evidence; derive circuit state from append-only events; remain unable to authorize, dispatch, verify, review or promote work; and, for any bounded coordinator over the same authority, walk only the recorded route order, dispatch each route at most once, resume from durable evidence rather than an authorization's own memory, and stop on success, an open circuit, or route exhaustion",
+  "evidence_produced": [
+    "one content-addressed supervision plan over an ordered list of separately authorized routes and fixed budgets",
+    "append-only STARTED, CHECKPOINT, SUCCEEDED, FAILED and CIRCUIT_OPEN observations",
+    "closed failure classification and measured wall-time, token and cost fields",
+    "run and evidence binding for a recorded successful terminal event",
+    "a deterministic coordinator summary: supervision_id, terminal_status, the successful route index/run/evidence when one exists, every attempted route index, and the failure class recorded for each"
+  ],
+  "verification": "python3 -m unittest tests.test_worker_supervisor -v"
+}

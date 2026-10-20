@@ -56,6 +56,37 @@ def _consume_token(*, token: str, binding_hash: str, request_hash: str) -> bool:
 
 
 @dataclass(frozen=True)
+class ExecutionBudget:
+    """A provider-neutral bound on one authorized request.
+
+    Every dimension is required and strictly positive: a budget with an
+    unlimited or zero dimension is not a budget, it is the absence of one,
+    and the absence of one is expressed by leaving ``ExecutionRequest.budget``
+    as ``None`` rather than by a sentinel value here.
+    """
+
+    wall_time_ms: int
+    token_limit: int
+    cost_limit_micros: int
+
+    def __post_init__(self) -> None:
+        for name in ("wall_time_ms", "token_limit", "cost_limit_micros"):
+            value = getattr(self, name)
+            if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                raise CisError(
+                    "execution budget dimension must be a positive integer",
+                    field=name, value=value,
+                )
+
+    def as_dict(self) -> dict:
+        return {
+            "wall_time_ms": self.wall_time_ms,
+            "token_limit": self.token_limit,
+            "cost_limit_micros": self.cost_limit_micros,
+        }
+
+
+@dataclass(frozen=True)
 class ExecutionRequest:
     """One bounded unit of authorized work, as the port sees it.
 
@@ -72,12 +103,13 @@ class ExecutionRequest:
     stopping_condition: str
     return_point: str
     payload: Mapping[str, Any] = field(default_factory=dict)
+    budget: "ExecutionBudget | None" = None
     token: str | None = None
     binding_hash: str | None = None
 
     def contract_view(self) -> dict:
         """The hashable view of the request: everything except the token."""
-        return {
+        view = {
             "request_id": self.request_id,
             "operation": self.operation,
             "allowed_scope": list(self.allowed_scope),
@@ -87,6 +119,12 @@ class ExecutionRequest:
             "return_point": self.return_point,
             "payload": dict(self.payload),
         }
+        # Preserve the pre-supervision request hash exactly when no budget is
+        # attached. A budgeted request gains one token-covered field; ordinary
+        # dispatch does not silently invalidate its established identity.
+        if self.budget is not None:
+            view["budget"] = self.budget.as_dict()
+        return view
 
     @property
     def request_hash(self) -> str:
@@ -117,6 +155,36 @@ class ExecutionRequest:
 
 
 @dataclass(frozen=True)
+class ExecutionUsage:
+    """Immutable, provider-neutral measured usage for one execution attempt.
+
+    Every dimension is required and nonnegative. This is a measurement, not a
+    budget: zero is a legitimate observed value, unlike ``ExecutionBudget``
+    where zero would mean the absence of a bound.
+    """
+
+    wall_time_ms: int
+    tokens_used: int
+    cost_micros: int
+
+    def __post_init__(self) -> None:
+        for name in ("wall_time_ms", "tokens_used", "cost_micros"):
+            value = getattr(self, name)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise CisError(
+                    "execution usage dimension must be a nonnegative integer",
+                    field=name, value=value,
+                )
+
+    def as_dict(self) -> dict:
+        return {
+            "wall_time_ms": self.wall_time_ms,
+            "tokens_used": self.tokens_used,
+            "cost_micros": self.cost_micros,
+        }
+
+
+@dataclass(frozen=True)
 class ExecutionResult:
     """What any backend returns. No backend-specific field exists."""
 
@@ -125,15 +193,22 @@ class ExecutionResult:
     outputs: Mapping[str, Any]
     checks_performed: tuple[str, ...]
     evidence: tuple[str, ...]
+    usage: "ExecutionUsage | None" = None
 
     def as_dict(self) -> dict:
-        return {
+        view = {
             "status": self.status,
             "exit_code": self.exit_code,
             "outputs": dict(self.outputs),
             "checks_performed": list(self.checks_performed),
             "evidence": list(self.evidence),
         }
+        # Preserve the pre-usage result record exactly when no usage is
+        # attached, the same rule ``ExecutionRequest.contract_view`` applies
+        # to an unbudgeted request.
+        if self.usage is not None:
+            view["usage"] = self.usage.as_dict()
+        return view
 
     def deterministic_view(self) -> dict:
         """Stable semantic result; run-specific evidence is deliberately out."""
@@ -177,6 +252,27 @@ class ExecutionPort(ABC):
     enforced_policy_prohibitions: tuple[str, ...] = ()
     enforced_policy_checks: tuple[str, ...] = ()
     produced_policy_evidence: tuple[str, ...] = ()
+    #: A backend may require the gateway to resolve an immutable
+    #: execution-input binding — the exact candidate source, vector contract
+    #: and worker identity a verify_authored_source.v1 task would run over —
+    #: and derive the token-covered request payload from that binding alone.
+    requires_execution_input: bool = False
+    #: The immutable sha256-digest image identity this backend is actually
+    #: configured to run. Declared so the gateway can refuse a request whose
+    #: resolved execution-input binding was authorized against a different
+    #: image than the one this backend would use.
+    execution_image_identity: str | None = None
+    #: Immutable apparatus digests used when an execution-input binding is
+    #: issued. They are declarations of the selected backend, never values a
+    #: task caller may supply in a dispatch payload.
+    expected_trusted_runner_sha256: str | None = None
+    expected_worker_sha256: str | None = None
+    #: Closed set of ``ExecutionBudget`` dimension names this adapter actually
+    #: meters and terminates on. Empty by default: declaring a budget on a
+    #: request does not, by itself, make any adapter enforce it. This is a
+    #: vocabulary, not an enforcement mechanism — defining it here commits no
+    #: adapter to metering or terminating anything.
+    enforced_budget_dimensions: tuple[str, ...] = ()
 
     @abstractmethod
     def capabilities(self) -> Sequence[str]:

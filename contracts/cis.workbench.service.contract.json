@@ -1,6 +1,6 @@
 {
   "module_id": "cis.workbench.service",
-  "responsibility": "Turns one instruction into a bounded ALLOW or HOLD derived only from canonical authority, while preserving the active objective unless explicitly redirected.",
+  "responsibility": "Turns one instruction into a bounded ALLOW or HOLD derived only from canonical authority, and delegates resumable authored-source issuance without crossing the execution gateway boundary.",
   "layer": "L2",
   "owned_authority": [],
   "reads": [
@@ -27,6 +27,7 @@
     "cis.continuity.classifier",
     "cis.continuity.retrieval",
     "cis.policy.authority",
+    "cis.assurance.issuance",
     "cis.execution.gateway",
     "cis.workbench.projection"
   ],
@@ -37,14 +38,15 @@
   ],
   "trust_domain": "cis_clean_control_host",
   "execution_location": "in-process, cis-clean application process",
-  "failure_boundary": "fail_closed — the default verdict is HOLD, and a retrieval cue, an unresolved or ambiguous module target, a module outside this slice's reconstruction scope, a module with no canonical evidence_basis, a recorded evidence conflict, an absent objective, or an objective established by the request itself each produce HOLD with a reason code rather than a permissive guess",
+  "failure_boundary": "fail_closed — the default verdict is HOLD, and a retrieval cue, an unresolved or ambiguous module target, a module outside this slice's reconstruction scope, a module with no canonical evidence_basis, a recorded evidence conflict, an absent objective, or an objective established by the request itself each produce HOLD with a reason code rather than a permissive guess; only the closed command form verify authored source for a selected module issues that operation, and preparation delegates to the bounded issuance module",
   "recovery_behavior": "Each instruction is a sequence of appends with the verdict recorded last, so an interruption leaves the preceding steps readable in the trajectory and no authorization half-issued",
-  "replacement_contract": "A replacement must preserve the verbatim words separately from interpretation, treat questions and fragments as retrieval cues, require explicit redirection to change the objective, derive the permission decision only from canonical accepted authority for the target module and never from retrieval, overlap or repetition of a request, derive scope from the target module's own contract, populate required_evidence from the target's canonical evidence_basis, return retrieved antecedents separately as contextual continuity evidence, and never name an execution backend",
+  "replacement_contract": "A replacement must preserve the verbatim words separately from interpretation, treat questions and fragments as retrieval cues, require explicit redirection to change the objective, derive the permission decision only from canonical accepted authority for the target module and never from retrieval, overlap or repetition of a request, derive scope from the target module's own contract, select verify_authored_source only from its closed human-readable command form, delegate contract/input preparation to cis.assurance.issuance, populate required_evidence from the target's canonical evidence_basis, return retrieved antecedents separately as contextual continuity evidence, and never name an execution backend",
   "evidence_produced": [
     "one intent transaction, one continuity decision and one authorization per instruction",
     "the canonical authorization basis named on every ALLOW, and null on every HOLD",
     "retrieved antecedents labeled as contextual continuity evidence rather than authorization basis",
-    "micro trajectory events for each stage of the chain"
+    "micro trajectory events for each stage of the chain",
+    "a resumable authored-source issuance result derived through cis.assurance.issuance without caller-supplied apparatus identity"
   ],
-  "verification": "python3 -m unittest tests.test_workbench -v"
+  "verification": "python3 -m unittest tests.test_workbench tests.test_authored_source_production -v"
 }

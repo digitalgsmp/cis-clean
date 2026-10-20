@@ -1,0 +1,18 @@
+{
+  "adapter_id": "contained_worker",
+  "authorization_id": "auth-tx-bf05beadb4be",
+  "execution_input_hash": "32316f02ec87f3cc5db622d3b9ed9d0cf99d6dc80521609506533550da275660",
+  "host_action": "NONE_RECORD_ONLY",
+  "promotion_decision": "PROMOTION_AUTHORIZED",
+  "promotion_decision_id": "pd-66b127051e98",
+  "result_hash": "cf6d5b60877eb62909b3bbc76e0e72fd31592e51f1635a87aec364f6943d5b2d",
+  "review_id": "rev-184e8f93b3a4",
+  "review_outcome": "PASS",
+  "run_id": "run-auth-tx-bf05beadb4be",
+  "schema": "cis-authored-source-production-proof-v1",
+  "task_contract_hash": "255d5a4743610fd42e2530e471c676a0bbd593782446e704ac8cedcb506bf629",
+  "task_contract_id": "tc-79a8d345ab62",
+  "verification_outcome": "VERIFIED_PASS",
+  "verification_result_id": "vres-fc9686c4203c",
+  "worker_image": "sha256:83e36e14606362123429ac046f0c0ece134de6bda84870e1b59dcfb6fb0541e5"
+}

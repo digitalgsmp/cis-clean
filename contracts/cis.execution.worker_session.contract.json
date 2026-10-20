@@ -1,0 +1,54 @@
+{
+  "module_id": "cis.execution.worker_session",
+  "responsibility": "Sole owner of migration 0013's route-bound worker_sessions, worker_model_requests and worker_session_events, and of migration 0014's durable provider-neutral worker_logical_sessions and their worker_session_legs — opening exactly one route-bound session leg per already-verified worker_supervision route, binding exactly one worker-model request per route with the route's exact authorization, adapter and positive wall-time/token/cost budgets copied verbatim, recording the closed external-session/checkpoint/success/failure/suspend/close lifecycle-event vocabulary and its request-binding and ref/digest conditional columns, refusing any mutation once a session is closed, and separately opening a logical session addressed only by objective/transaction/target-module/operation/role so that a fallback to a different route, adapter or provider can attach as an ordered leg of the same durable conversation without that logical identity ever naming a route, authorization, adapter, provider or external provider session reference",
+  "layer": "L2",
+  "owned_authority": [
+    "worker_sessions",
+    "worker_model_requests",
+    "worker_session_events",
+    "worker_logical_sessions",
+    "worker_session_legs"
+  ],
+  "reads": [
+    "execution_authorizations",
+    "worker_supervision_plans",
+    "worker_attempt_events",
+    "backend_runs"
+  ],
+  "writes": [
+    "worker_sessions",
+    "worker_model_requests",
+    "worker_session_events",
+    "worker_logical_sessions",
+    "worker_session_legs"
+  ],
+  "mutation_interface": "WorkerSessionAuthority.open_session and issue_request append through AuthorityStore after independently re-verifying the governing supervision plan, route and route authorization; bind_external_session, start_request, checkpoint_request, succeed_request, fail_request, suspend_session and close_session append lifecycle events after independently re-verifying the session, request and (for start/succeed/fail) the matching WorkerSupervisorAuthority event; open_logical_session appends a logical session content-addressed only from objective_id, transaction_id, target_module_id, operation and logical_role, never from any route, authorization, adapter, provider or external session reference; attach_route_session appends a worker_session_legs row binding an existing route-bound session to a logical session at a strictly positive sequential leg_ordinal, after independently re-verifying both records and requiring their objective/transaction/target-module/operation/role to agree; get_session, get_request, events, get_logical_session, get_leg, legs, verify_session, verify_request, verify_event, verify_logical_session and verify_leg are read-only",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.authority.authorization",
+    "cis.authority.runs",
+    "cis.execution.worker_supervisor"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.workbench.service",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion",
+    "cis.execution.gateway",
+    "cis.execution.adapters.contained_worker"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process deterministic authority state machine; no model, network, backend invocation or host action is performed directly or indirectly by this module",
+  "failure_boundary": "fail_closed — an unknown, non-recomputing, closed-vocabulary-violating session, request, event, logical session or leg; a logical role or failure class outside the closed vocabulary; a request or event whose conditional columns disagree with its event type; a request that does not belong to its claimed session and supervision route; a route authorization that is not ALLOW or does not independently re-verify; a route or supervision-plan identity that has drifted since the session was opened; start/success/failure recorded without an exact matching WorkerSupervisorAuthority event for the same route, run, evidence or failure class; success bound to a backend run that is not COMPLETED or not bound to this request's authorization, adapter and evidence; any mutation attempted after SESSION_CLOSED; a leg attachment whose route session and logical session disagree on objective, transaction, target module, operation or logical role; a leg_ordinal that is not a strictly positive integer or is not the next strictly sequential ordinal for its logical session; a route session attached to more than one logical session or to a disagreeing ordinal; and a disagreeing retry of any previously recorded session, request, event, logical session or leg all refuse",
+  "recovery_behavior": "Sessions, requests, events, logical sessions and legs are content-addressed and idempotent: an identical retry of open_session, issue_request, open_logical_session, attach_route_session or any lifecycle event returns the recorded fact, including repairing a session header written without its SESSION_OPENED event; a disagreeing retry refuses rather than overwriting. SESSION_CLOSED may be recorded any number of times once reached, and SESSION_SUSPENDED carries no distinguishing data so repeats are naturally idempotent. Migration-0013 route-bound sessions remain immutable and keep their existing API unchanged; they acquire durable cross-route, cross-adapter and cross-provider continuity only through explicit attach_route_session, never by inference or automatic backfill. This module never starts or finishes a WorkerSupervisorAuthority attempt and never calls the gateway, a provider, an adapter, the verifier, the reviewer or promotion — it only records what those authorities have already independently settled, and never treats an external provider-side session reference or checkpoint reference as authority on its own",
+  "replacement_contract": "A replacement must preserve exactly one route-bound session per supervision route and exactly one worker-model request per route with budgets copied verbatim from the route; enforce the same closed logical-role, event-type and failure-class vocabularies and the same conditional-column bindings; require start, success and failure to match an existing WorkerSupervisorAuthority event for the identical route, run, evidence or failure class; require success to bind an existing COMPLETED backend run matching the request's authorization, adapter and evidence; separately preserve a durable logical session whose content address excludes any route, authorization, adapter, provider or external session reference, and an append-only leg association that attaches at most one route-bound session to a logical session at a strictly positive, strictly sequential ordinal while refusing duplicate, disagreeing, reordered or cross-objective attachment; remain idempotent on identical retries and refuse disagreeing ones; fail closed once a session is closed; and remain unable to authorize, dispatch, verify, review or promote work, or to treat an external session or checkpoint reference as authority",
+  "evidence_produced": [
+    "one content-addressed route-bound session header binding a logical role to an already-verified supervision route",
+    "at most one content-addressed worker-model request per route, carrying the route's exact authorization, adapter and positive budgets and the caller's prompt/context/response-schema digests",
+    "an append-only, closed-vocabulary sequence of session and request lifecycle events: SESSION_OPENED, EXTERNAL_SESSION_BOUND, REQUEST_STARTED, REQUEST_CHECKPOINTED, REQUEST_SUCCEEDED, REQUEST_FAILED, SESSION_SUSPENDED, SESSION_CLOSED",
+    "one content-addressed durable logical session per objective/transaction/target-module/operation/role, naming no route, authorization, adapter, provider or external session reference",
+    "an append-only, uniquely ordered sequence of worker_session_legs attaching existing route-bound sessions to a logical session at strictly positive sequential ordinals"
+  ],
+  "verification": "python3 -m unittest tests.test_worker_session -v"
+}

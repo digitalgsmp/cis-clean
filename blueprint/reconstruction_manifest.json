@@ -505,6 +505,37 @@
    "recovery": "candidate and prior bytes are recorded in an immutable plan before mutation; apply and rollback completion are derived from append-only events and an interrupted action is resumable from authority alone"
   }
  },
+ "authored_source_production_increment": {
+  "increment_id": "SLICE-005-AUTHORED-SOURCE-PRODUCTION-001",
+  "proof_artifact": "runtime/worker-proof/authored-source-unit-5.json",
+  "authority_artifact": "runtime/worker-proof/authored-source-unit-5.db",
+  "proof_tool": "tools/prove_authored_source_pipeline.py",
+  "image": "sha256:83e36e14606362123429ac046f0c0ece134de6bda84870e1b59dcfb6fb0541e5",
+  "statement": "A production issuer freezes verify_authored_source.v1 and binds exact candidate, vector, entrypoint and immutable apparatus identities before the existing gateway dispatches them to the sealed worker; deterministic verification, independent review and autonomous record-only promotion all consume the same authority chain.",
+  "acceptance": [
+   "contained_worker completed with exit code zero",
+   "deterministic outcome VERIFIED_PASS",
+   "independent reviewer outcome PASS",
+   "autonomous decision PROMOTION_AUTHORIZED",
+   "host action NONE_RECORD_ONLY"
+  ]
+ },
+ "recovery_execution_increment": {
+  "increment_id": "SLICE-006B2-CONTAINED-RECOVERY-001",
+  "proof_artifact": "runtime/worker-proof/recovery-unit-6b2-attempt2.json",
+  "authority_artifact": "runtime/worker-proof/recovery-unit-6b2-attempt2.db",
+  "proof_tool": "tools/prove_recovery_pipeline.py",
+  "statement": "An intentionally wrong parent candidate is rejected by the sealed worker assurance path, operational self-assessment requires replacement, and a separately authorized child candidate passes through the same contained gateway, deterministic Verifier, independent Reviewer and record-only promotion authority without the assessment authorizing itself.",
+  "acceptance": [
+   "parent outcome VERIFIED_FAIL with review OBJECTIONS and PROMOTION_DENIED",
+   "operational assessment disposition REPLACEMENT_CANDIDATE_REQUIRED",
+   "distinct child authorization and immutable recovery-attempt lineage",
+   "replacement contained-worker run completed",
+   "replacement outcome VERIFIED_PASS with independent review PASS",
+   "replacement decision PROMOTION_AUTHORIZED",
+   "host action NONE_RECORD_ONLY"
+  ]
+ },
  "selected_modules": [
   {
    "module_id": "cis.blueprint.manifest",
@@ -739,7 +770,7 @@
    "module_id": "cis.assurance.reviewer",
    "contract": "contracts/cis.assurance.reviewer.contract.json",
    "reconstruction_status": "RECONSTRUCTED_IN_SLICE_002",
-   "capability": "independent review by a separate lineage through its own input port, bounded to three objection cycles",
+   "capability": "independent review by a separate lineage through its own input port, reconstructing the exact candidate and evidence binding before PASS and bounded to three objection cycles",
    "evidence_basis": [
     "ADR-ARCH-004 clause 5",
     "ADR-XDEV-001 as cited by the handoff README"
@@ -806,6 +837,88 @@
     "dev_continuity_events:4.37:29 - verdict authority moved outside the untrusted process",
     "dev_continuity_events:4.37:30 - assurance boundary investigation, CONTRACT_COMPATIBLE",
     "containers/contained-worker/worker.sh - the six-argument frozen invocation"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.execution_input",
+   "contract": "contracts/cis.assurance.execution_input.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_005",
+   "capability": "Immutable, content-addressed authority for the exact candidate source, vector contract and worker identity a verify_authored_source.v1 task runs over, one binding per frozen task contract",
+   "evidence_basis": [
+    "dev_continuity_events:4.37:31 - execution-input authority as its own versioned extension, ahead of verify_authored_source.v1",
+    "ADR-ARCH-001 clause 5 - exactly one module may own any given authority"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.issuance",
+   "contract": "contracts/cis.assurance.issuance.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_005",
+   "capability": "Production, resumable issuance of a verify_authored_source.v1 contract and exact execution-input binding using apparatus identity declared by the selected gateway",
+   "evidence_basis": [
+    "dev_continuity_events:4.37 - production issuance and real contained-worker end-to-end acceptance",
+    "ADR-ARCH-002 - record once, derive everywhere",
+    "ADR-ARCH-003 - sole Layer-2 execution boundary"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.recovery",
+   "contract": "contracts/cis.assurance.recovery.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_006",
+   "capability": "Deterministic operational self-assessment of an integrity-verified objection into immutable preserved bindings, permitted changes and required recovery checks without self-authorizing the recovery",
+   "evidence_basis": [
+    "assurance_increment.order_reconciliation - bounded recovery decisions remain separate from execution",
+    "authored_source_production_increment - exact candidate and apparatus binding",
+    "ADR-ARCH-002 - record once, derive everywhere"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.recovery_attempt",
+   "contract": "contracts/cis.assurance.recovery_attempt.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_006",
+   "capability": "Sole owner of recovery_attempts: records the lineage from one verified replacement-required operational assessment to the fresh child task contract and execution-input binding issued for its replacement attempt, without claiming execution or granting authority to act",
+   "evidence_basis": [
+    "assurance_increment.order_reconciliation - bounded recovery decisions remain separate from execution",
+    "authored_source_production_increment - exact candidate and apparatus binding",
+    "ADR-ARCH-001 clause 5 - exactly one module may own any given authority"
+   ]
+  },
+  {
+   "module_id": "cis.assurance.recovery_execution",
+   "contract": "contracts/cis.assurance.recovery_execution.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_006B2",
+   "capability": "Carries one independently authorized replacement candidate from a replacement-required operational assessment through production issuance, the existing gateway, and the existing verifier, reviewer and promotion facades, without authorizing its own recommendation or owning any authority of its own",
+   "evidence_basis": [
+    "recovery_execution_increment - real sealed-worker failure, assessment, replacement and assurance proof",
+    "assurance_increment.order_reconciliation - bounded recovery decisions remain separate from execution",
+    "authored_source_production_increment - exact candidate and apparatus binding",
+    "ADR-ARCH-004 clause 5 - author is not verifier, separate lineage reviews"
+   ]
+  },
+  {
+   "module_id": "cis.execution.worker_supervisor",
+   "contract": "contracts/cis.execution.worker_supervisor.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_007C",
+   "capability": "Records immutable ordered supervision routes over distinct existing ALLOW authorizations, positive per-attempt wall-time/token/cost budgets, artifact checkpoints, closed failure classes, exact run/evidence binding and deterministic circuit state; coordinates gateway-controlled single-use attempts, typed failure fallback and interruption recovery from durable metered evidence without replaying a spent authorization. The sealed contained-worker adapter meters authorized wall time, reports structurally zero model-token and provider-cost use, proves timed-out container absence before classification, and has a real timeout-to-fallback assurance and idempotence proof.",
+   "evidence_basis": [
+    "owner instruction 2026-10-19 - build deterministic worker supervisor for timeouts, failed model calls, budgets, retries and fallback routing",
+    "dev_continuity_events:4.39:1 - CIS coordinates the governed development loop and resumes from verified state",
+    "Slice 6B observed Claude Code worker failures - broad and budget-exhausted cards produced no accepted artifacts",
+    "ADR-ARCH-003 - execution remains behind the existing Layer-2 gateway",
+    "ADR-ARCH-004 clause 5 - worker self-report cannot substitute for independent assurance"
+   ]
+  },
+  {
+   "module_id": "cis.execution.worker_session",
+   "contract": "contracts/cis.execution.worker_session.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_SLICE_008A",
+   "capability": "Sole owner of migration 0013's route-bound worker_sessions, worker_model_requests and worker_session_events, and of migration 0014's durable provider-neutral worker_logical_sessions and worker_session_legs: opens exactly one route-bound session leg per already-verified worker_supervision route, binds exactly one worker-model request per route with the route's exact authorization, adapter and budgets copied verbatim, records the closed external-session/checkpoint/success/failure/suspend/close lifecycle-event vocabulary idempotently and fail-closed, and separately opens a logical session addressed only by objective/transaction/target-module/operation/role so a fallback to a different route, adapter or provider can attach as an ordered leg of the same durable conversation instead of aliasing a new one — without authorizing, dispatching, verifying, reviewing, promoting, or treating an external provider-side session or checkpoint reference as authority",
+   "evidence_basis": [
+    "migration 0013_worker_sessions - append-only, route-bound session/request/event schema with closed vocabularies and conditional-column constraints; its session content address includes the supervision route and adapter, so it is one route-bound session leg, not a durable logical session",
+    "migration 0014_worker_logical_sessions - corrects that gap with an append-only, provider-neutral logical session addressed only from objective/transaction/target-module/operation/role, and an append-only worker_session_legs association that attaches existing route-bound sessions to it in strict positive sequential order with no inferred or automatic backfill",
+    "tests.test_worker_session - 25/25 deterministic PASS: idempotent open/issue/lifecycle transitions, fail-closed route and supervisor-event matching, append-only protection, logical-session/leg idempotence, cross-objective and reordered attachment refusal, and continued-green 0013 coverage including cross-session alias refusal",
+    "runtime/review-cards/unit-8a-session-architecture-v1.md - independent architecture review of the 0013 session-identity defect and the 0014 correction, plus an independent Qwen final PASS on the implementation",
+    "owner instruction - governed external-development continuity requires a session boundary distinct from the supervisor's own route authority",
+    "ADR-ARCH-004 clause 5 - worker self-report cannot substitute for independent assurance"
    ]
   }
  ],

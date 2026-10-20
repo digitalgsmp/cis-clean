@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any
 
 from cis.authority import MIGRATIONS_DIR, AuthorityStore
 from cis.blueprint import load_blueprint
+from cis.canonical import canonical_json
 from cis.conductor import Conductor
 from cis.workbench import Workbench
 
@@ -221,6 +223,7 @@ def exercised_workbench():
     passing_task_contract_id = assure(
         wb, outcome.authorization["authorization_id"])
     seed_policy_envelope(wb, passing_task_contract_id)
+    seed_execution_input(wb, passing_task_contract_id)
 
     # Seed the slice-4 append-only host-handoff tables. Their behavioral path
     # is exercised through HostPromotionGate in test_host_promotion_gate; this
@@ -255,7 +258,125 @@ def exercised_workbench():
 
     objecting = conduct.ingest_instruction(ALLOW_INSTRUCTION)
     assert objecting.authorization["verdict"] == "ALLOW", objecting.authorization
-    assure(wb, objecting.authorization["authorization_id"], cycles=1)
+    objecting_task_contract_id = assure(
+        wb, objecting.authorization["authorization_id"], cycles=1)
+
+    # Seed Slice-6's append-only assessment authority. Its behavioral path is
+    # tested with an authored-source execution input; this generic trigger
+    # fixture needs only a referentially valid row so it cannot pass empty.
+    cycle = wb.store.one(
+        "SELECT * FROM objection_cycles WHERE task_contract_id = ?",
+        (objecting_task_contract_id,))
+    wb.store.insert("operational_assessments", {
+        "assessment_id": "osa-seed",
+        "task_contract_id": objecting_task_contract_id,
+        "cycle_id": str(cycle["cycle_id"]),
+        "review_id": str(cycle["review_id"]),
+        "cycle_number": int(cycle["cycle_number"]),
+        "disposition": "REPLACEMENT_CANDIDATE_REQUIRED",
+        "failure_class": "CANDIDATE_OR_RESULT_FAILURE",
+        "preserved_bindings_json": "{}",
+        "permitted_changes_json": '["candidate_source"]',
+        "required_checks_json": "[]",
+        "source_facts_hash": "a" * 64,
+        "hash_domain": "cis.assurance.operational_assessment.v1",
+        "assessment_hash": "b" * 64,
+        "created_at": wb.store.now(),
+        "seq": wb.store.next_seq(),
+    })
+
+    # Seed Slice-6's append-only recovery-attempt authority. Its behavioral
+    # path is tested with a fresh authored-source child; this generic trigger
+    # fixture needs only a referentially valid row so it cannot pass empty.
+    wb.store.insert("recovery_attempts", {
+        "attempt_id": "rca-seed",
+        "assessment_id": "osa-seed",
+        "parent_task_contract_id": objecting_task_contract_id,
+        "child_authorization_id": objecting.authorization["authorization_id"],
+        "child_task_contract_id": passing_task_contract_id,
+        "parent_execution_input_hash": "a" * 64,
+        "child_execution_input_hash": "b" * 64,
+        "candidate_sha256": "c" * 64,
+        "generation": 1,
+        "hash_domain": "cis.assurance.recovery_attempt.v1",
+        "attempt_hash": "d" * 64,
+        "created_at": wb.store.now(),
+        "seq": wb.store.next_seq(),
+    })
+
+    # Seed Unit-7A worker-supervision authority for the generic append-only
+    # trigger proof. Behavioral integrity is covered in test_worker_supervisor.
+    supervision_id = "wsp-seed"
+    wb.store.insert("worker_supervision_plans", {
+        "supervision_id": supervision_id,
+        "objective_id": objecting.authorization["objective_id"],
+        "transaction_id": objecting.authorization["transaction_id"],
+        "target_module_id": objecting.authorization["target_module_id"],
+        "operation": objecting.authorization["scope"]["operation"],
+        "routes_json": canonical_json([{
+            "authorization_id": objecting.authorization["authorization_id"],
+            "adapter_id": "deterministic_mock", "wall_time_ms": 1000,
+            "token_limit": 1000, "cost_limit_micros": 1000,
+        }]),
+        "route_count": 1, "circuit_threshold": 1,
+        "hash_domain": "cis.execution.worker_supervision.plan.v1",
+        "plan_hash": "e" * 64,
+        "created_at": wb.store.now(), "seq": wb.store.next_seq(),
+    })
+    wb.store.insert("worker_attempt_events", {
+        "event_id": "wse-seed", "supervision_id": supervision_id,
+        "route_index": 0,
+        "authorization_id": objecting.authorization["authorization_id"],
+        "adapter_id": "deterministic_mock", "event_type": "STARTED",
+        "failure_class": None, "measured_wall_ms": None,
+        "measured_tokens": None, "measured_cost_micros": None,
+        "checkpoint_ref": None, "checkpoint_sha256": None,
+        "run_id": None, "evidence_id": None,
+        "hash_domain": "cis.execution.worker_supervision.event.v1",
+        "event_hash": "f" * 64,
+        "created_at": wb.store.now(), "seq": wb.store.next_seq(),
+    })
+
+    # Seed Unit-8A's three distinct append-only authorities in the same
+    # generic fixture. A durable external session is not an execution attempt:
+    # its header, issued model request and lifecycle fact remain separately
+    # addressable even though this fixture anchors all three to the route
+    # immediately above.
+    wb.store.insert("worker_sessions", {
+        "session_id": "wks-seed", "supervision_id": supervision_id,
+        "route_index": 0,
+        "objective_id": objecting.authorization["objective_id"],
+        "transaction_id": objecting.authorization["transaction_id"],
+        "target_module_id": objecting.authorization["target_module_id"],
+        "operation": objecting.authorization["scope"]["operation"],
+        "logical_role": "IMPLEMENTER", "adapter_id": "deterministic_mock",
+        "hash_domain": "cis.execution.worker_session.header.v1",
+        "session_hash": "1" * 64,
+        "created_at": wb.store.now(), "seq": wb.store.next_seq(),
+    })
+    wb.store.insert("worker_model_requests", {
+        "request_id": "wmr-seed", "session_id": "wks-seed",
+        "supervision_id": supervision_id, "route_index": 0,
+        "authorization_id": objecting.authorization["authorization_id"],
+        "adapter_id": "deterministic_mock",
+        "wall_time_ms": 1000, "token_limit": 1000,
+        "cost_limit_micros": 1000,
+        "prompt_sha256": "2" * 64, "context_sha256": "3" * 64,
+        "response_schema_sha256": "4" * 64, "ordinal": 1,
+        "hash_domain": "cis.execution.worker_session.request.v1",
+        "request_hash": "5" * 64,
+        "created_at": wb.store.now(), "seq": wb.store.next_seq(),
+    })
+    wb.store.insert("worker_session_events", {
+        "event_id": "wkse-seed", "session_id": "wks-seed",
+        "request_id": None, "event_type": "SESSION_OPENED",
+        "external_session_ref": None, "checkpoint_ref": None,
+        "checkpoint_sha256": None, "run_id": None, "evidence_id": None,
+        "failure_class": None,
+        "hash_domain": "cis.execution.worker_session.event.v1",
+        "event_hash": "6" * 64,
+        "created_at": wb.store.now(), "seq": wb.store.next_seq(),
+    })
 
     # Recorded LAST, on purpose: a standing evidence conflict forces HOLD on
     # every later instruction, so seeding it earlier would stop the second
@@ -329,6 +450,34 @@ def seed_policy_envelope(wb, task_contract_id):
     from cis.policy.sources import PolicySourceAuthority
     ingest_source_catalog(PolicySourceAuthority(wb.store))
     return envelope
+
+
+def execution_input_authority(wb):
+    from cis.assurance.execution_input import ExecutionInputAuthority
+    return ExecutionInputAuthority(wb.store, assurance_authority(wb))
+
+
+def seed_execution_input(wb, task_contract_id, **overrides):
+    """Append one valid execution-input binding for ``task_contract_id``."""
+    contract = assurance_authority(wb).ledger.require_task_contract(task_contract_id)
+    candidate_source = b"def run():\n    return 1\n"
+    vector_contract = canonical_json(
+        [{"args": [1], "expect_value": 1}]).encode("utf-8")
+    values = {
+        "task_contract_id": task_contract_id,
+        "candidate_source": candidate_source,
+        "candidate_sha256": hashlib.sha256(candidate_source).hexdigest(),
+        "vector_contract": vector_contract,
+        "vector_contract_sha256": hashlib.sha256(vector_contract).hexdigest(),
+        "authorized_entrypoint": "run",
+        "task_contract_hash": str(contract["task_contract_hash"]),
+        "authorization_binding_hash": str(contract["authorization_binding_hash"]),
+        "worker_image": "sha256:" + "c" * 64,
+        "expected_trusted_runner_sha256": "a" * 64,
+        "expected_worker_sha256": "b" * 64,
+    }
+    values.update(overrides)
+    return execution_input_authority(wb).append(**values)
 
 
 def verifier(wb):

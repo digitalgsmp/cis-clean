@@ -6,10 +6,15 @@ from pathlib import Path
 
 from cis.authority.runs import COMPLETED
 from cis.errors import (
-    AuthorizationRefused, BindingError, CisError, ExecutionRefused,
-    StaleAuthorization,
+    AuthorizationRefused, BindingError, CisError, ExecutionArtifactInvalid,
+    ExecutionBudgetExhausted, ExecutionOutputIncomplete,
+    ExecutionPermissionWaitRefused, ExecutionProviderFailure, ExecutionRefused,
+    ExecutionTimedOut, StaleAuthorization,
 )
-from cis.execution import AdapterRegistry, ExecutionGateway, ExecutionRequest
+from cis.execution import (
+    AdapterRegistry, ExecutionBudget, ExecutionGateway, ExecutionRequest,
+    ExecutionUsage,
+)
 from cis.execution.adapters.deterministic_mock import (
     DeterministicMockAdapter, SecondDeterministicAdapter,
 )
@@ -365,6 +370,341 @@ class NoLeakAboveTheBoundaryTests(unittest.TestCase):
         for token in ("SELECT ", "INSERT ", "sqlite3", "trajectory_events",
                       "execution_authorizations", "intent_transactions"):
             self.assertNotIn(token, text)
+
+
+class ExecutionBudgetTests(unittest.TestCase):
+    """Unit 7B1: the provider-neutral budget/failure vocabulary."""
+
+    def test_a_valid_budget_round_trips_through_as_dict(self):
+        budget = ExecutionBudget(
+            wall_time_ms=30_000, token_limit=4_000, cost_limit_micros=500_000)
+        self.assertEqual(budget.as_dict(), {
+            "wall_time_ms": 30_000,
+            "token_limit": 4_000,
+            "cost_limit_micros": 500_000,
+        })
+
+    def test_a_zero_dimension_is_refused(self):
+        with self.assertRaises(CisError):
+            ExecutionBudget(wall_time_ms=0, token_limit=1, cost_limit_micros=1)
+
+    def test_a_negative_dimension_is_refused(self):
+        with self.assertRaises(CisError):
+            ExecutionBudget(wall_time_ms=1, token_limit=-1, cost_limit_micros=1)
+
+    def test_a_non_integer_dimension_is_refused(self):
+        with self.assertRaises(CisError):
+            ExecutionBudget(wall_time_ms=1.5, token_limit=1, cost_limit_micros=1)
+
+    def test_a_bool_dimension_is_refused(self):
+        with self.assertRaises(CisError):
+            ExecutionBudget(wall_time_ms=True, token_limit=1, cost_limit_micros=1)
+
+    def test_the_budget_is_immutable(self):
+        budget = ExecutionBudget(
+            wall_time_ms=1, token_limit=1, cost_limit_micros=1)
+        with self.assertRaises(Exception):
+            budget.wall_time_ms = 2
+
+    def test_a_request_with_no_budget_hashes_as_before(self):
+        without_budget = _request()
+        self.assertIsNone(without_budget.budget)
+        self.assertNotIn("budget", without_budget.contract_view())
+
+    def test_a_requests_budget_is_covered_by_the_request_hash(self):
+        budget = ExecutionBudget(
+            wall_time_ms=1_000, token_limit=1_000, cost_limit_micros=1_000)
+        plain = _request()
+        with_budget = _request(budget=budget)
+        self.assertNotEqual(plain.request_hash, with_budget.request_hash)
+
+    def test_a_token_minted_for_the_unbudgeted_request_does_not_cover_the_budgeted_one(self):
+        budget = ExecutionBudget(
+            wall_time_ms=1_000, token_limit=1_000, cost_limit_micros=1_000)
+        unbound = _request()
+        token = _mint_token(binding_hash="bh", request_hash=unbound.request_hash)
+        request = _request(token=token, binding_hash="bh", budget=budget)
+        with self.assertRaises(ExecutionRefused) as caught:
+            DeterministicMockAdapter().execute(request)
+        self.assertIn("does not match", caught.exception.message)
+
+    def test_a_token_minted_for_the_exact_budgeted_request_is_accepted(self):
+        budget = ExecutionBudget(
+            wall_time_ms=1_000, token_limit=1_000, cost_limit_micros=1_000)
+        unbound = _request(budget=budget)
+        token = _mint_token(binding_hash="bh", request_hash=unbound.request_hash)
+        request = _request(token=token, binding_hash="bh", budget=budget)
+        result = DeterministicMockAdapter().execute(request)
+        self.assertEqual(result.status, "completed")
+
+    def test_an_adapter_declares_no_enforced_budget_dimensions_by_default(self):
+        self.assertEqual(ExecutionPort.enforced_budget_dimensions, ())
+        self.assertEqual(
+            DeterministicMockAdapter().enforced_budget_dimensions, ())
+
+
+class ExecutionFailureVocabularyTests(unittest.TestCase):
+    """Six typed, specific refusals — every one an ``ExecutionRefused``."""
+
+    _CASES = (
+        (ExecutionTimedOut, "EXECUTION_TIMED_OUT"),
+        (ExecutionBudgetExhausted, "EXECUTION_BUDGET_EXHAUSTED"),
+        (ExecutionPermissionWaitRefused, "EXECUTION_PERMISSION_WAIT_REFUSED"),
+        (ExecutionProviderFailure, "EXECUTION_PROVIDER_FAILURE"),
+        (ExecutionOutputIncomplete, "EXECUTION_OUTPUT_INCOMPLETE"),
+        (ExecutionArtifactInvalid, "EXECUTION_ARTIFACT_INVALID"),
+    )
+
+    def test_each_failure_type_is_an_execution_refused_with_its_own_code(self):
+        for cls, code in self._CASES:
+            with self.subTest(cls=cls.__name__):
+                self.assertTrue(issubclass(cls, ExecutionRefused))
+                self.assertEqual(cls.code, code)
+
+    def test_each_failure_type_is_distinct(self):
+        classes = [cls for cls, _ in self._CASES]
+        self.assertEqual(len(classes), len(set(classes)))
+
+    def test_each_failure_type_can_be_raised_and_caught_as_execution_refused(self):
+        for cls, _ in self._CASES:
+            with self.subTest(cls=cls.__name__):
+                with self.assertRaises(ExecutionRefused) as caught:
+                    raise cls("injected", request_id="req-1")
+                self.assertIsInstance(caught.exception, cls)
+                self.assertEqual(caught.exception.detail["request_id"], "req-1")
+
+
+class ExecutionUsageTests(unittest.TestCase):
+    """Unit 7B2: the immutable, provider-neutral measured-usage vocabulary."""
+
+    def test_a_valid_usage_round_trips_through_as_dict(self):
+        usage = ExecutionUsage(wall_time_ms=100, tokens_used=10, cost_micros=5)
+        self.assertEqual(usage.as_dict(), {
+            "wall_time_ms": 100, "tokens_used": 10, "cost_micros": 5,
+        })
+
+    def test_zero_is_a_legitimate_measured_value(self):
+        usage = ExecutionUsage(wall_time_ms=0, tokens_used=0, cost_micros=0)
+        self.assertEqual(usage.as_dict()["wall_time_ms"], 0)
+
+    def test_a_negative_dimension_is_refused(self):
+        with self.assertRaises(CisError):
+            ExecutionUsage(wall_time_ms=-1, tokens_used=0, cost_micros=0)
+
+    def test_a_non_integer_dimension_is_refused(self):
+        with self.assertRaises(CisError):
+            ExecutionUsage(wall_time_ms=1.5, tokens_used=0, cost_micros=0)
+
+    def test_a_bool_dimension_is_refused(self):
+        with self.assertRaises(CisError):
+            ExecutionUsage(wall_time_ms=True, tokens_used=0, cost_micros=0)
+
+    def test_usage_is_immutable(self):
+        usage = ExecutionUsage(wall_time_ms=1, tokens_used=1, cost_micros=1)
+        with self.assertRaises(Exception):
+            usage.wall_time_ms = 2
+
+    def test_a_result_with_no_usage_hashes_and_records_as_before(self):
+        without_usage = ExecutionResult(
+            status="completed", exit_code=0, outputs={},
+            checks_performed=(), evidence=())
+        self.assertIsNone(without_usage.usage)
+        self.assertNotIn("usage", without_usage.as_dict())
+
+    def test_a_results_usage_is_in_as_dict_but_not_the_deterministic_hash(self):
+        usage = ExecutionUsage(wall_time_ms=1, tokens_used=1, cost_micros=1)
+        plain = ExecutionResult(
+            status="completed", exit_code=0, outputs={},
+            checks_performed=(), evidence=())
+        with_usage = ExecutionResult(
+            status="completed", exit_code=0, outputs={},
+            checks_performed=(), evidence=(), usage=usage)
+        self.assertIn("usage", with_usage.as_dict())
+        self.assertEqual(plain.result_hash, with_usage.result_hash)
+
+
+class _SupervisedAdapter(ExecutionPort):
+    """A purpose-built backend that declares exact budget enforcement and
+    returns whatever usage a test configures, so dispatch_supervised can be
+    exercised independently of any real backend's actual timing."""
+
+    adapter_id = "supervised_test_adapter"
+    enforced_budget_dimensions = ("wall_time_ms", "token_limit", "cost_limit_micros")
+
+    def __init__(self, *, usage=None):
+        self._usage = usage
+
+    def capabilities(self):
+        return ("reconstruct_module",)
+
+    def execute(self, request):
+        request.verify_token()
+        return ExecutionResult(
+            status="completed", exit_code=0, outputs={},
+            checks_performed=tuple(request.required_checks),
+            evidence=("ran",), usage=self._usage,
+        )
+
+
+class _PartiallyEnforcingAdapter(_SupervisedAdapter):
+    """Declares enforcement of only two of the three budget dimensions."""
+
+    adapter_id = "partially_enforcing_test_adapter"
+    enforced_budget_dimensions = ("wall_time_ms", "token_limit")
+
+
+class SupervisedDispatchTests(unittest.TestCase):
+    """Unit 7B2: authoritative supervision-route binding at the gateway."""
+
+    def setUp(self):
+        self.wb, self.outcome = support.allow_outcome()
+        self.authorization_id = self.outcome.authorization["authorization_id"]
+        self.baseline_hash = self.wb.blueprint.baseline_hash
+        self.active_objective_id = self.wb.continuity.active_objective_id()
+
+    def _gateway(self, adapter, resolver=None):
+        registry = AdapterRegistry()
+        registry.register(adapter)
+        gateway = ExecutionGateway(
+            authorizations=self.wb.authorizations, runs=self.wb.runs,
+            evidence=self.wb.evidence, trajectory=self.wb.trajectory,
+            registry=registry, adapter_id=adapter.adapter_id,
+            authorization_check_resolver=self.wb.execution_preflight_checks,
+        )
+        if resolver is not None:
+            gateway = gateway.with_supervision_resolver(resolver)
+        return gateway
+
+    def _route(self, **overrides):
+        route = {
+            "authorization_id": self.authorization_id,
+            "adapter_id": "supervised_test_adapter",
+            "wall_time_ms": 5_000,
+            "token_limit": 2_000,
+            "cost_limit_micros": 300_000,
+        }
+        route.update(overrides)
+        return route
+
+    def _dispatch(self, gateway, supervision_id="wsp-test", route_index=0):
+        return gateway.dispatch_supervised(
+            supervision_id, route_index,
+            baseline_hash=self.baseline_hash,
+            active_objective_id=self.active_objective_id,
+        )
+
+    def test_dispatch_supervised_takes_no_authorization_adapter_or_budget_argument(self):
+        import inspect
+        signature = inspect.signature(ExecutionGateway.dispatch_supervised)
+        self.assertEqual(
+            list(signature.parameters),
+            ["self", "supervision_id", "route_index", "baseline_hash",
+             "active_objective_id"],
+        )
+
+    def test_route_derives_authorization_and_adapter_solely_from_the_route(self):
+        usage = ExecutionUsage(wall_time_ms=100, tokens_used=10, cost_micros=10)
+        adapter = _SupervisedAdapter(usage=usage)
+        gateway = self._gateway(adapter, resolver=lambda sid, idx: self._route())
+        result = self._dispatch(gateway)
+        self.assertEqual(result["status"], COMPLETED)
+        run = self.wb.runs.get(result["run_id"])
+        self.assertEqual(run["authorization_id"], self.authorization_id)
+        self.assertEqual(run["adapter_id"], "supervised_test_adapter")
+
+    def test_a_token_minted_for_the_derived_budget_reaches_the_adapter(self):
+        # The adapter calls request.verify_token() itself; success proves the
+        # minted token covers exactly the budgeted, route-derived request —
+        # the budget arrived inside the token-covered request hash.
+        usage = ExecutionUsage(wall_time_ms=1, tokens_used=1, cost_micros=1)
+        adapter = _SupervisedAdapter(usage=usage)
+        gateway = self._gateway(adapter, resolver=lambda sid, idx: self._route())
+        result = self._dispatch(gateway)
+        self.assertEqual(result["status"], COMPLETED)
+        self.assertEqual(result["usage"], usage.as_dict())
+
+    def test_no_resolver_is_refused(self):
+        adapter = _SupervisedAdapter(usage=ExecutionUsage(
+            wall_time_ms=0, tokens_used=0, cost_micros=0))
+        gateway = self._gateway(adapter)
+        with self.assertRaises(ExecutionRefused) as caught:
+            self._dispatch(gateway)
+        self.assertIn("no supervision-route resolver", caught.exception.message)
+
+    def test_a_malformed_route_is_refused(self):
+        adapter = _SupervisedAdapter(usage=ExecutionUsage(
+            wall_time_ms=0, tokens_used=0, cost_micros=0))
+        bad_route = self._route()
+        del bad_route["cost_limit_micros"]
+        gateway = self._gateway(adapter, resolver=lambda sid, idx: bad_route)
+        with self.assertRaises(ExecutionRefused) as caught:
+            self._dispatch(gateway)
+        self.assertIn("closed schema", caught.exception.message)
+
+    def test_a_route_naming_a_different_adapter_is_refused(self):
+        adapter = _SupervisedAdapter(usage=ExecutionUsage(
+            wall_time_ms=0, tokens_used=0, cost_micros=0))
+        gateway = self._gateway(adapter, resolver=lambda sid, idx: self._route(
+            adapter_id="some_other_adapter"))
+        with self.assertRaises(ExecutionRefused) as caught:
+            self._dispatch(gateway)
+        self.assertIn("different adapter", caught.exception.message)
+
+    def test_an_incomplete_enforcement_declaration_is_refused(self):
+        adapter = _PartiallyEnforcingAdapter(usage=ExecutionUsage(
+            wall_time_ms=0, tokens_used=0, cost_micros=0))
+        gateway = self._gateway(adapter, resolver=lambda sid, idx: self._route(
+            adapter_id="partially_enforcing_test_adapter"))
+        with self.assertRaises(ExecutionRefused) as caught:
+            self._dispatch(gateway)
+        self.assertIn("every budget dimension", caught.exception.message)
+
+    def test_missing_usage_is_refused_as_incomplete(self):
+        adapter = _SupervisedAdapter(usage=None)
+        gateway = self._gateway(adapter, resolver=lambda sid, idx: self._route())
+        with self.assertRaises(ExecutionOutputIncomplete):
+            self._dispatch(gateway)
+
+    def test_wall_time_overage_is_refused_as_timed_out(self):
+        usage = ExecutionUsage(wall_time_ms=6_000, tokens_used=1, cost_micros=1)
+        adapter = _SupervisedAdapter(usage=usage)
+        gateway = self._gateway(adapter, resolver=lambda sid, idx: self._route())
+        with self.assertRaises(ExecutionTimedOut):
+            self._dispatch(gateway)
+
+    def test_token_overage_is_refused_as_budget_exhausted(self):
+        usage = ExecutionUsage(wall_time_ms=1, tokens_used=3_000, cost_micros=1)
+        adapter = _SupervisedAdapter(usage=usage)
+        gateway = self._gateway(adapter, resolver=lambda sid, idx: self._route())
+        with self.assertRaises(ExecutionBudgetExhausted):
+            self._dispatch(gateway)
+
+    def test_cost_overage_is_refused_as_budget_exhausted(self):
+        usage = ExecutionUsage(wall_time_ms=1, tokens_used=1, cost_micros=400_000)
+        adapter = _SupervisedAdapter(usage=usage)
+        gateway = self._gateway(adapter, resolver=lambda sid, idx: self._route())
+        with self.assertRaises(ExecutionBudgetExhausted):
+            self._dispatch(gateway)
+
+    def test_a_successful_supervised_dispatch_returns_usage_and_spends_the_claim(self):
+        usage = ExecutionUsage(wall_time_ms=500, tokens_used=100, cost_micros=1_000)
+        adapter = _SupervisedAdapter(usage=usage)
+        gateway = self._gateway(adapter, resolver=lambda sid, idx: self._route())
+        result = self._dispatch(gateway)
+        self.assertEqual(result["usage"], usage.as_dict())
+        with self.assertRaises(ExecutionRefused):
+            self._dispatch(gateway)
+
+
+class SupervisionSeamTests(unittest.TestCase):
+    """The gateway must reach supervision authority only through a resolver
+    bound by its caller, never by importing the supervisor module itself —
+    that module may come to call this one, and a mutual import would cycle."""
+
+    def test_gateway_does_not_import_the_worker_supervisor_authority(self):
+        text = (SRC / "execution" / "gateway.py").read_text(encoding="utf-8")
+        self.assertNotIn("WorkerSupervisorAuthority", text)
+        self.assertNotIn("worker_supervisor", text)
 
 
 if __name__ == "__main__":

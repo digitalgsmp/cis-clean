@@ -1,0 +1,142 @@
+{
+  "events": [
+    {
+      "__hash_domain__": "cis.execution.worker_supervision.event.v1",
+      "adapter_id": "contained_worker",
+      "authorization_id": "auth-tx-bf05beadb4be",
+      "checkpoint_ref": null,
+      "checkpoint_sha256": null,
+      "event_id": "wse-f71a1aa56c3c49e0d422",
+      "event_type": "STARTED",
+      "evidence_id": null,
+      "failure_class": null,
+      "measured_cost_micros": null,
+      "measured_tokens": null,
+      "measured_wall_ms": null,
+      "route_index": 0,
+      "run_id": null,
+      "supervision_id": "wsp-2badbb817bf84111"
+    },
+    {
+      "__hash_domain__": "cis.execution.worker_supervision.event.v1",
+      "adapter_id": "contained_worker",
+      "authorization_id": "auth-tx-bf05beadb4be",
+      "checkpoint_ref": null,
+      "checkpoint_sha256": null,
+      "event_id": "wse-174ea3c8ed16d6456e7d",
+      "event_type": "FAILED",
+      "evidence_id": null,
+      "failure_class": "timeout",
+      "measured_cost_micros": 0,
+      "measured_tokens": 0,
+      "measured_wall_ms": 1005,
+      "route_index": 0,
+      "run_id": null,
+      "supervision_id": "wsp-2badbb817bf84111"
+    },
+    {
+      "__hash_domain__": "cis.execution.worker_supervision.event.v1",
+      "adapter_id": "contained_worker",
+      "authorization_id": "auth-tx-bf05beadb4be-fallback",
+      "checkpoint_ref": null,
+      "checkpoint_sha256": null,
+      "event_id": "wse-266c2c28602b8be258ee",
+      "event_type": "STARTED",
+      "evidence_id": null,
+      "failure_class": null,
+      "measured_cost_micros": null,
+      "measured_tokens": null,
+      "measured_wall_ms": null,
+      "route_index": 1,
+      "run_id": null,
+      "supervision_id": "wsp-2badbb817bf84111"
+    },
+    {
+      "__hash_domain__": "cis.execution.worker_supervision.event.v1",
+      "adapter_id": "contained_worker",
+      "authorization_id": "auth-tx-bf05beadb4be-fallback",
+      "checkpoint_ref": null,
+      "checkpoint_sha256": null,
+      "event_id": "wse-1913dcf8c5989b4e0244",
+      "event_type": "SUCCEEDED",
+      "evidence_id": "evi-run-auth-tx-bf05beadb4be-fallback",
+      "failure_class": null,
+      "measured_cost_micros": 0,
+      "measured_tokens": 0,
+      "measured_wall_ms": 326,
+      "route_index": 1,
+      "run_id": "run-auth-tx-bf05beadb4be-fallback",
+      "supervision_id": "wsp-2badbb817bf84111"
+    }
+  ],
+  "idempotence": {
+    "after": {
+      "event_count": 4,
+      "run_count": 1
+    },
+    "before": {
+      "event_count": 4,
+      "run_count": 1
+    }
+  },
+  "image": "sha256:83e36e14606362123429ac046f0c0ece134de6bda84870e1b59dcfb6fb0541e5",
+  "plan_hash": "ffc3f4c79c880bbd9b9d0c94f103eeb5fe3a6558f7359f82959d97570a318826",
+  "promotion": {
+    "decision": "PROMOTION_AUTHORIZED",
+    "decision_id": "pd-31423cdad810",
+    "host_action": "NONE_RECORD_ONLY"
+  },
+  "review": {
+    "outcome": "PASS",
+    "review_id": "rev-e2e95f508eb3"
+  },
+  "routes": [
+    {
+      "authorization_id": "auth-tx-bf05beadb4be",
+      "execution_input_hash": "62782d53a0edb4cfd43d46d9a82c0b7282c788b679057fd2a75e265c690cd6d2",
+      "task_contract_hash": "1988feb99dc2f85a36b444385da1151abeaa92a263aa65c9af0b3333702d7ae3",
+      "task_contract_id": "tc-79a8d345ab62"
+    },
+    {
+      "authorization_id": "auth-tx-bf05beadb4be-fallback",
+      "execution_input_hash": "01de5da71c6ab674af48b95e196d63cb52b0b829f7bb21757ac4002a50281a90",
+      "task_contract_hash": "bf9b7db2916c1af694b9d16481d82bacebfe58c3428bc91685ac376c924cd9b2",
+      "task_contract_id": "tc-4005859163dc"
+    }
+  ],
+  "schema": "cis-worker-supervision-proof-v1",
+  "successful_route": {
+    "content_hash": "397331b07fb7fec08ac25c2bc4b3b0cfc932a21acb1252b4362095470024236d",
+    "evidence_id": "evi-run-auth-tx-bf05beadb4be-fallback",
+    "result_hash": "9a28c54f0b3469494ac34f9c487d4187a4027f891866fe9a22331830da7e3516",
+    "run_id": "run-auth-tx-bf05beadb4be-fallback",
+    "usage": {
+      "measured_cost_micros": 0,
+      "measured_tokens": 0,
+      "measured_wall_ms": 326
+    }
+  },
+  "summary": {
+    "attempted_route_indexes": [
+      0,
+      1
+    ],
+    "failure_classes": {
+      "0": "timeout"
+    },
+    "successful_evidence_id": "evi-run-auth-tx-bf05beadb4be-fallback",
+    "successful_route_index": 1,
+    "successful_run_id": "run-auth-tx-bf05beadb4be-fallback",
+    "supervision_id": "wsp-2badbb817bf84111",
+    "terminal_status": "SUCCEEDED"
+  },
+  "supervision_id": "wsp-2badbb817bf84111",
+  "timeout_route": {
+    "container_absent": true,
+    "container_name": "cis-cw-2e7396bc9a7af76de12655637ec63ff8"
+  },
+  "verification": {
+    "outcome": "VERIFIED_PASS",
+    "result_id": "vres-7c5bb2370c2d"
+  }
+}

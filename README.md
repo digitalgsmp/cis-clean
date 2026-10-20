@@ -1,4 +1,4 @@
-# CIS clean-room reconstruction — vertical slices 1–4
+# CIS clean-room reconstruction — vertical slices 1–6B2
 
 A runnable, offline, deterministic slice of the durable CIS: **one human
 instruction becomes a bounded ALLOW or HOLD, an ALLOW becomes one governed
@@ -16,6 +16,52 @@ contract plus a separate host gate that applies only a promotion-authorized,
 evidence-matching candidate and can restore prior bytes from append-only
 authority alone.
 
+Slice 5 adds production issuance for `verify_authored_source.v1`: the exact
+candidate, canonical vector contract, entrypoint, immutable worker image and
+trusted apparatus digests are bound before dispatch. The real contained run is
+then admitted through the existing verifier, independently reviewed against
+the same bindings, and may produce only a record-only autonomous promotion
+decision.
+
+Slice 6 begins bounded recovery with operational self-assessment. A recorded
+objection is independently rechecked against its review, verification and
+execution-input authority, then translated into an immutable specification of
+what failed, what must remain unchanged, and what a later recovery may alter.
+This assessment deliberately grants no execution authority.
+
+Slice 6B1 adds `cis.assurance.recovery_attempt`, the sole owner of
+`recovery_attempts`. It records the lineage from a verified
+replacement-required assessment to the fresh child task contract and
+execution-input binding issued for its replacement attempt. This records
+lineage only; it neither claims execution nor grants authority to authorize,
+execute, verify, review or promote anything.
+
+Slice 6B2 adds `cis.assurance.recovery_execution`. It requires a separate,
+pre-existing child authorization and carries that replacement through the
+existing issuer, recovery-attempt ledger, gateway, Verifier, Reviewer and
+record-only promotion authority. The assessment cannot authorize its own
+recommendation, and a failed replacement cannot become promotion-authorized.
+The production proof records a rejected parent and a successful replacement
+through the real sealed non-root worker.
+
+Slice 8A adds `cis.execution.worker_session`. Migration 0013's
+`worker_sessions` row is one route-bound provider session leg — its content
+address includes the governing supervision route and adapter — not a
+durable, provider-neutral session; it keeps its existing API unchanged.
+Migration 0014 adds the durable logical session that was missing:
+`worker_logical_sessions`, content-addressed only from
+objective/transaction/target-module/operation/role and naming no route,
+authorization, adapter, provider or external session reference, plus
+`worker_session_legs`, the append-only association that attaches an existing
+route-bound session to a logical session at a strictly positive sequential
+ordinal. A route-bound session gains durable continuity only through
+explicit attachment — there is no inferred or automatic backfill — so a
+provider fallback or a later authorized request can continue the same
+logical session without reusing a spent authorization or aliasing a new one.
+`tests.test_worker_session` is 25/25 deterministic PASS, independently
+confirmed by a Qwen final PASS against
+`runtime/review-cards/unit-8a-session-architecture-v1.md`.
+
 `/mnt/projects/cis` is read-only evidence for this work. Nothing here reads,
 writes, migrates, restarts or deploys anything in it; the authority store
 refuses to open a database under that path at all, and every ALLOW carries
@@ -28,7 +74,7 @@ refuses to open a database under that path at all, and every ALLOW carries
 ```sh
 cd /mnt/projects/cis-clean
 
-# validate the blueprint and all 30 module contracts, print the derived order
+# validate the blueprint and all 37 module contracts, print the derived order
 PYTHONPATH=src python3 -m cis verify
 
 # run the whole slice end to end, in memory, offline
@@ -36,6 +82,16 @@ PYTHONPATH=src python3 -m cis demo
 
 # the full test suite (stdlib unittest, no dependencies, no network)
 python3 -m unittest discover -s tests -t . -v
+
+# real Slice 5 proof (requires the sealed contained-worker image)
+PYTHONPATH=src python3 tools/prove_authored_source_pipeline.py \
+    --authority runtime/worker-proof/authored-source-unit-5.db \
+    --output runtime/worker-proof/authored-source-unit-5.json
+
+# real Slice 6B2 bounded-recovery proof (requires the sealed worker image)
+PYTHONPATH=src python3 tools/prove_recovery_pipeline.py \
+    --authority runtime/worker-proof/recovery-unit-6b2-attempt2.db \
+    --output runtime/worker-proof/recovery-unit-6b2-attempt2.json
 
 # one test module
 python3 -m unittest tests.test_execution -v
@@ -92,10 +148,10 @@ identity seam that does not exist in this slice.
 ```
 blueprint/reconstruction_manifest.json   operational input: stages, selected modules,
                                          reconstruction status, evidence basis
-contracts/*.contract.json                30 module contracts, exactly 16 fields each
+contracts/*.contract.json                37 module contracts, exactly 16 fields each
 src/cis/contracts/                       registry + field-level validator
 src/cis/blueprint/                       manifest loader; baseline hash
-src/cis/authority/                       clean SQLite authority + 8 migrations
+src/cis/authority/                       clean SQLite authority + 14 migrations
 policy/                                  cumulative closed-schema operational policy sources
 src/cis/policy/                          automatic source admission + closed MASTER/TASK compiler
 src/cis/assurance/                       frozen contracts, verifier, independent reviewer,
@@ -107,7 +163,7 @@ src/cis/execution/                       Layer-2 port, gateway, and L3 adapters
 src/cis/worker/                          real nonroot contained execution adapter
 src/cis/host/                            decision-enforcing apply and rollback gate
 src/cis/interface/                       L1 JSON control surface (+ stdlib HTTP)
-tests/                                   355 tests, stdlib unittest only
+tests/                                   543 tests, stdlib unittest only
 ```
 
 ---
@@ -118,7 +174,7 @@ tests/                                   355 tests, stdlib unittest only
 |---|---|
 | ADR-ARCH-001 cl. 3 — exactly 16 semantic fields | `contracts/registry.py :: REQUIRED_FIELDS`, refused before recording |
 | ADR-ARCH-001 cl. 4 — fields do not collapse | `parse_contract` refuses `recovery_behavior == failure_boundary` and `evidence_produced == [verification]` |
-| ADR-ARCH-001 cl. 5 — one owner per authority | `ContractRegistry.add` / `validate`; 21 owned authorities, 20 owners |
+| ADR-ARCH-001 cl. 5 — one owner per authority | `ContractRegistry.add` / `validate`; 26 owned authorities, 15 owner modules |
 | ADR-ARCH-001 cl. 2 — planes are properties | `trust_domain`, `execution_location`, `failure_boundary` are contract fields; there is no second hierarchy and no second store |
 | ADR-ARCH-002 — record once, derive everywhere | dependency order, active objective, module progress and "you are here" are all derived; the manifest is refused if it carries a literal dependency order |
 | ADR-ARCH-002 — derive from fields, not prose | every decision the code makes reads a structured field; no module parses narrative text for a status |
@@ -247,14 +303,15 @@ the trap was never touched.
 
 ## What this slice does not do
 
-* The assurance increment verifies and independently reviews immutable
-  submitted evidence, but it does not execute remediation. Objection cycles
-  record a bounded recovery decision; replacement-candidate execution belongs
-  to the later real contained-worker capability.
+* Objection cycles still only record a bounded recovery decision; they do not
+  execute a replacement themselves. `cis.assurance.recovery_execution` carries
+  a replacement candidate end to end, but only for one already-assessed,
+  already-authorized child — it has no retry policy, no failure
+  classification and no way to select or produce a candidate on its own.
 * The deterministic mock backend remains for offline boundary tests. The real
-  contained worker currently produces a contract-bound candidate manifest; it
-  does not yet run arbitrary model-authored source code, and it cannot promote
-  its own output.
+  contained worker can execute source bound by `verify_authored_source.v1` and
+  its closed vector contract. It cannot choose its inputs, verify itself,
+  review itself, promote its own output, or perform a host action.
 * Retrieval is deterministic token overlap, not semantic search. It is honest
   about what it matched and it is reproducible; it is not a recall claim, and
   it is not a permission channel — nothing it returns can authorize work.
@@ -291,7 +348,11 @@ the trap was never touched.
 
 ## Next slice boundary
 
-The A–O foundation no longer gates the contained worker. The next development
-boundary is to connect bounded recovery and replacement-candidate semantics to
-the operational self-assessment pipeline, while keeping arbitrary code
-execution and privileged host control outside the worker trust domain.
+The A–O foundation, deterministic operational self-assessment and the bounded
+replacement coordinator now exist. The next development boundary is a real
+replacement-recovery proof through the sealed contained worker, followed by
+the deferred deterministic worker supervisor for per-attempt budgets, closed
+failure classification, progress checkpoints, circuit breaking and bounded
+fallback routing. Neither step may let an assessment authorize itself, treat a
+worker report as evidence, or move privileged host control into the worker
+trust domain.

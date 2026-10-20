@@ -28,6 +28,11 @@ _EXPECTED_MIGRATIONS = [
     "0006_execution_attempt_claims",
     "0007_policy_envelopes",
     "0008_policy_sources",
+    "0009_task_execution_inputs",
+    "0010_operational_assessments",
+    "0011_recovery_attempts",
+    "0012_worker_supervision",
+    "0013_worker_sessions",
 ]
 
 

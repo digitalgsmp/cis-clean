@@ -2,9 +2,10 @@
 
 ``PROMOTION_AUTHORIZED`` is a CONJUNCTION and nothing less: a recorded
 ``VERIFIED_PASS`` from the verifier AND a recorded ``PASS`` from the
-independent reviewer, over the same frozen task contract, with no objection
-cycle having escalated it. Either half missing, or pending, or failed, and the
-decision is ``PROMOTION_DENIED`` with the reason code that says which half.
+independent reviewer, over the same frozen task contract and exact verification
+result, with both review and linkage digests recomputing and no objection cycle
+having escalated it. Either half missing, pending, failed or misbound produces
+``PROMOTION_DENIED`` with the reason code that says which boundary failed.
 
 THIS MODULE DOES NOT PROMOTE ANYTHING
 -------------------------------------
@@ -35,7 +36,7 @@ from __future__ import annotations
 from ..canonical import sha256_hex
 from .authority import (
     AssuranceAuthority, HOST_ACTION_NONE, PROMOTION_AUTHORIZED,
-    PROMOTION_DENIED, REVIEW_PENDING,
+    PROMOTION_DENIED, REVIEW_PENDING, review_result_hash_of_row,
 )
 
 REASON_CONJUNCTION_SATISFIED = "VERIFICATION_PASSED_AND_REVIEW_PASSED"
@@ -45,6 +46,7 @@ REASON_REVIEW_PENDING = "REVIEW_NOT_RECORDED"
 REASON_REVIEW_OBJECTIONS = "REVIEW_RAISED_OBJECTIONS"
 REASON_ESCALATED = "OBJECTION_CYCLES_EXHAUSTED_AND_ESCALATED"
 REASON_ALREADY_DECIDED = "PROMOTION_ALREADY_DECIDED"
+REASON_REVIEW_BINDING_INVALID = "REVIEW_NOT_BOUND_TO_VERIFIED_CANDIDATE"
 
 #: The only host action this increment is capable of recording.
 HOST_ACTION = HOST_ACTION_NONE
@@ -89,6 +91,14 @@ class PromotionRecorder:
             return self._denied(REASON_REVIEW_PENDING, verification, None)
         if not ledger.review_passed(task_contract_id):
             return self._denied(REASON_REVIEW_OBJECTIONS, verification, review)
+        if (str(review["verification_result_id"])
+                != str(verification["result_id"])
+                or str(review["recomputed_verification_result_hash"])
+                != str(verification["result_hash"])
+                or review_result_hash_of_row(review)
+                != str(review["review_hash"])):
+            return self._denied(
+                REASON_REVIEW_BINDING_INVALID, verification, review)
 
         return {
             "decision": PROMOTION_AUTHORIZED,

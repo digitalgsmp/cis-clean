@@ -1,0 +1,44 @@
+{
+  "module_id": "cis.assurance.issuance",
+  "responsibility": "Issues one production verify_authored_source unit by freezing its task contract and immutably binding its exact candidate, vectors, entrypoint and selected apparatus identity.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "execution_authorizations",
+    "task_contracts",
+    "task_execution_inputs",
+    "blueprint/reconstruction_manifest.json",
+    "the selected execution adapter identity through cis.execution.gateway"
+  ],
+  "writes": [],
+  "mutation_interface": "none — it appends only through cis.assurance.authority and cis.assurance.execution_input, which remain the authority owners",
+  "depends_on": [
+    "cis.authority.authorization",
+    "cis.blueprint.manifest",
+    "cis.assurance.authority",
+    "cis.assurance.task_contract",
+    "cis.assurance.execution_input",
+    "cis.execution.gateway"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.execution.port",
+    "cis.execution.adapters.contained_worker",
+    "cis.worker.contained_nonroot",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process; it issues immutable authority but executes no candidate and performs no host action",
+  "failure_boundary": "fail_closed — a missing, stale, non-ALLOW or non-verify_authored_source authorization, an authorization already frozen under another template, an incomplete selected-backend identity, malformed candidate/vector/entrypoint input, or any attempted replacement of an existing execution-input binding refuses without dispatch",
+  "recovery_behavior": "Resumable and idempotent — after any interruption it independently verifies and reuses an already frozen verify_authored_source.v1 contract and returns an existing byte-identical execution-input binding, while refusing any differing replacement under the same authorization",
+  "replacement_contract": "A replacement must derive permission only from a verified recorded authorization, compile only verify_authored_source.v1, obtain immutable image, trusted-runner and worker identities only through the selected gateway rather than caller input, append only through the existing single owners, make identical retries idempotent, and refuse all attempts to replace the candidate or apparatus under one authorization",
+  "evidence_produced": [
+    "one frozen verify_authored_source.v1 task contract through the assurance owner",
+    "one immutable task_execution_inputs row carrying exact candidate/vector bytes and selected apparatus digests through the execution-input owner",
+    "a deterministic issuance result naming the authorization, task-contract and execution-input hashes",
+    "a refusal naming any immutable field an attempted retry tried to replace"
+  ],
+  "verification": "python3 -m unittest tests.test_authored_source_production -v"
+}

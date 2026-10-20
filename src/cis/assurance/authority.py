@@ -555,21 +555,15 @@ class ReviewerFacade(_Facade):
                 "verification in the declared flow",
                 task_contract_id=task_contract_id,
             )
-        review_hash = sha256_hex({
-            "__hash_domain__": "cis.assurance.review_result.v1",
-            "review_id": review_id,
-            "task_contract_id": task_contract_id,
-            "verification_result_id": verification_result_id,
-            "cycle_index": cycle_index,
-            "outcome": outcome,
-            "reason_code": reason_code,
-            "reviewer_lineage": reviewer_lineage,
-            "packet_hash": packet_hash,
-            "recomputed_task_contract_hash": recomputed_task_contract_hash,
-            "recomputed_verification_result_hash":
-                recomputed_verification_result_hash,
-            "objections": [dict(o) for o in objections],
-        })
+        review_hash = review_result_hash(
+            review_id=review_id, task_contract_id=task_contract_id,
+            verification_result_id=verification_result_id,
+            cycle_index=cycle_index, outcome=outcome, reason_code=reason_code,
+            reviewer_lineage=reviewer_lineage, packet_hash=packet_hash,
+            recomputed_task_contract_hash=recomputed_task_contract_hash,
+            recomputed_verification_result_hash=(
+                recomputed_verification_result_hash),
+            objections=objections)
         row = self._store.insert("review_results", {
             "review_id": review_id,
             "task_contract_id": task_contract_id,
@@ -718,6 +712,21 @@ class PromotionFacade(_Facade):
                     "and the review it rests on",
                     task_contract_id=task_contract_id,
                 )
+            verification = self._ledger.verification_result(task_contract_id)
+            review = self._ledger.latest_review(task_contract_id)
+            if (verification is None or review is None
+                    or str(verification_result_id) != str(verification["result_id"])
+                    or str(review_id) != str(review["review_id"])
+                    or str(review["verification_result_id"])
+                    != str(verification["result_id"])
+                    or str(review["recomputed_verification_result_hash"])
+                    != str(verification["result_hash"])
+                    or review_result_hash_of_row(review)
+                    != str(review["review_hash"])):
+                raise PromotionRefused(
+                    "PROMOTION_AUTHORIZED requires the exact current review "
+                    "and verification to be integrity-bound to each other",
+                    task_contract_id=task_contract_id)
         decision_hash = sha256_hex({
             "__hash_domain__": "cis.assurance.promotion_decision.v1",
             "decision_id": decision_id,
@@ -787,6 +796,45 @@ def verification_result_hash_of_row(row: Mapping[str, Any]) -> str:
         reason_code=str(row["reason_code"]),
         checks_performed=json.loads(str(row["checks_performed_json"])),
         findings=json.loads(str(row["findings_json"])),
+    )
+
+
+def review_result_hash(*, review_id: str, task_contract_id: str,
+                       verification_result_id: str, cycle_index: int,
+                       outcome: str, reason_code: str, reviewer_lineage: str,
+                       packet_hash: str, recomputed_task_contract_hash: str,
+                       recomputed_verification_result_hash: str,
+                       objections: Sequence[Mapping[str, Any]]) -> str:
+    return sha256_hex({
+        "__hash_domain__": "cis.assurance.review_result.v1",
+        "review_id": review_id,
+        "task_contract_id": task_contract_id,
+        "verification_result_id": verification_result_id,
+        "cycle_index": cycle_index,
+        "outcome": outcome,
+        "reason_code": reason_code,
+        "reviewer_lineage": reviewer_lineage,
+        "packet_hash": packet_hash,
+        "recomputed_task_contract_hash": recomputed_task_contract_hash,
+        "recomputed_verification_result_hash":
+            recomputed_verification_result_hash,
+        "objections": [dict(o) for o in objections],
+    })
+
+
+def review_result_hash_of_row(row: Mapping[str, Any]) -> str:
+    return review_result_hash(
+        review_id=str(row["review_id"]),
+        task_contract_id=str(row["task_contract_id"]),
+        verification_result_id=str(row["verification_result_id"]),
+        cycle_index=int(row["cycle_index"]), outcome=str(row["outcome"]),
+        reason_code=str(row["reason_code"]),
+        reviewer_lineage=str(row["reviewer_lineage"]),
+        packet_hash=str(row["packet_hash"]),
+        recomputed_task_contract_hash=str(row["recomputed_task_contract_hash"]),
+        recomputed_verification_result_hash=str(
+            row["recomputed_verification_result_hash"]),
+        objections=json.loads(str(row["objections_json"])),
     )
 
 

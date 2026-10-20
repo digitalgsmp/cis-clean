@@ -13,9 +13,12 @@ structural rather than asserted:
   * it assembles its OWN packet from authority through its own input port,
     rather than reading the ``verification_inputs`` row the verifier assembled
     as if that were the evidence;
-  * it RECOMPUTES every digest it relies on — the task contract's independent
-    digest, the authorization's binding, and the verification result's own hash
-    — and refuses to review anything whose recorded digest does not recompute.
+  * it RECOMPUTES every digest it relies on — the task contract, authorization,
+    verification input, verification result, execution input and evidence —
+    and refuses to review anything whose recorded digest does not recompute;
+  * for authored source, it independently parses the closed worker attestation
+    and binds it to the exact candidate, vectors, entrypoint, apparatus, run and
+    verifier-input packet before it can return PASS.
 
 WHAT A CYCLE IS IN THIS INCREMENT
 ---------------------------------
@@ -26,8 +29,8 @@ in this increment can change it: there is no worker here that could produce a
 revised submission or execute a replacement candidate. Each cycle therefore
 records what the reviewer decided to ask for, and records in authority — in
 ``objection_cycles.replacement_execution_wiring`` — that the execution of that
-request belongs with the later real nonroot contained-worker capability. This
-module does not pretend remediation exists.
+request belongs with a separately authorized contained-worker execution. This
+module reviews but cannot itself execute remediation.
 
 Because the evidence is immutable and the assessment is deterministic, a
 submission that draws objections draws them again on cycle 2 and cycle 3, and
@@ -58,6 +61,7 @@ from .authority import (
     RECOVERY_REPLACEMENT_CANDIDATE, RECOVERY_REVISED_SUBMISSION, REVIEW_OBJECTIONS,
     REVIEW_PASS, VERIFIED_PASS, verification_result_hash_of_row,
 )
+from .execution_input import verify_row as verify_execution_input_row
 from .task_contract import verify_row
 
 #: The reviewer's declared lineage. A separate lineage from the author and from
@@ -69,11 +73,89 @@ REASON_REVIEW_PASS = "SUBMISSION_AND_VERIFICATION_BOTH_STAND"
 REASON_VERIFICATION_DID_NOT_PASS = "VERIFICATION_DID_NOT_PASS"
 REASON_ARTIFACTS_INCOMPLETE = "DECLARED_ARTIFACTS_INCOMPLETE"
 REASON_NO_REVISED_SUBMISSION = "NO_REVISED_SUBMISSION_AVAILABLE"
+REASON_BINDING_FAILED = "INDEPENDENT_CANDIDATE_EVIDENCE_BINDING_FAILED"
 
 #: An objection a reviewer can raise, as a closed vocabulary.
 OBJECTION_VERIFICATION_FAILED = "VERIFICATION_OUTCOME_IS_NOT_A_PASS"
 OBJECTION_ARTIFACT_ABSENT = "DECLARED_ARTIFACT_ABSENT_FROM_SUBMISSION"
 OBJECTION_PRIOR_REQUEST_UNMET = "PRIOR_CYCLE_REQUEST_REMAINS_UNMET"
+OBJECTION_BINDING_FAILED = "CANDIDATE_OR_EVIDENCE_BINDING_DID_NOT_RECOMPUTE"
+
+_ATTESTATION_KEYS = frozenset({
+    "schema", "operation", "adapter", "image", "worker_operation",
+    "execution_input_hash", "task_contract_id", "task_contract_hash",
+    "entrypoint", "verdict", "classification", "attestation_valid",
+    "attestation_failures", "worker_exit", "source_sha256",
+    "vector_contract_sha256", "task_contract_bundle_sha256",
+    "authorization_binding_hash", "trusted_runner_sha256", "worker_sha256",
+    "declared_vectors", "allowed_scope", "forbidden_actions", "stopped_at",
+    "returned_to",
+})
+
+_ATTESTATION_BINDING_BASE_KEYS = frozenset({
+    "attestation_sha256", "result_hash", "result_record_sha256"})
+_ATTESTATION_BINDING_WITH_USAGE_KEYS = (
+    _ATTESTATION_BINDING_BASE_KEYS | {"usage"})
+_USAGE_KEYS = frozenset({"wall_time_ms", "tokens_used", "cost_micros"})
+
+
+def _usage_is_valid(usage: Any) -> bool:
+    """Independently validate the optional gateway usage mapping: exact
+    keys, and values that are ints (never bools) that are not negative."""
+    return (
+        isinstance(usage, Mapping)
+        and set(usage) == _USAGE_KEYS
+        and all(isinstance(value, int) and not isinstance(value, bool)
+                and value >= 0 for value in usage.values())
+    )
+
+
+def _verification_input_hash(row: Mapping[str, Any]) -> str:
+    return sha256_hex({
+        "__hash_domain__": "cis.assurance.verification_inputs.v1",
+        "input_id": str(row["input_id"]),
+        "task_contract_id": str(row["task_contract_id"]),
+        "submitted_run_id": row["submitted_run_id"],
+        "submitted_evidence_id": row["submitted_evidence_id"],
+        "submitted_artifacts": json.loads(
+            str(row["submitted_artifacts_json"])),
+        "recomputed_task_contract_hash": str(
+            row["recomputed_task_contract_hash"]),
+        "recomputed_binding_hash": str(row["recomputed_binding_hash"]),
+        "assembled_by": str(row["assembled_by"]),
+    })
+
+
+def _parse_attestation(evidence: Mapping[str, Any] | None,
+                       run: Mapping[str, Any] | None) -> dict[str, str] | None:
+    """Independent parser; no verifier code or verifier packet is reused."""
+    if evidence is None or run is None:
+        return None
+    text = evidence.get("original_language")
+    if not isinstance(text, str) or not text:
+        return None
+    try:
+        binding = json.loads(str(evidence["content"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not isinstance(binding, dict):
+        return None
+    keys = set(binding)
+    if keys == _ATTESTATION_BINDING_WITH_USAGE_KEYS:
+        if not _usage_is_valid(binding["usage"]):
+            return None
+    elif keys != _ATTESTATION_BINDING_BASE_KEYS:
+        return None
+    if (binding["attestation_sha256"] != sha256_text(text)
+            or binding["result_hash"] != str(run["result_hash"])):
+        return None
+    parsed: dict[str, str] = {}
+    for line in text.splitlines():
+        key, separator, value = line.partition("=")
+        if not separator or not key or key in parsed:
+            return None
+        parsed[key] = value.strip()
+    return parsed if set(parsed) == _ATTESTATION_KEYS else None
 
 
 @dataclass(frozen=True)
@@ -89,6 +171,9 @@ class ReviewPacket:
     authorization: Mapping[str, Any]
     run: Mapping[str, Any] | None
     evidence: Mapping[str, Any] | None
+    verification_input: Mapping[str, Any]
+    execution_input: Mapping[str, Any] | None
+    attestation: Mapping[str, str] | None
     verification: Mapping[str, Any]
     prior_cycles: tuple[Mapping[str, Any], ...]
     cycle_index: int
@@ -96,6 +181,9 @@ class ReviewPacket:
     recomputed_binding_hash: str
     recomputed_verification_result_hash: str
     recomputed_evidence_digest: str | None
+    recomputed_verification_input_hash: str
+    recomputed_execution_input_hash: str | None
+    binding_failures: tuple[str, ...]
 
     def payload(self) -> dict:
         return {
@@ -106,6 +194,8 @@ class ReviewPacket:
             "evidence_id": (self.evidence["evidence_id"]
                             if self.evidence else None),
             "verification_result_id": self.verification["result_id"],
+            "verification_input_id": self.verification_input["input_id"],
+            "execution_input_hash": self.recomputed_execution_input_hash,
             "cycle_index": self.cycle_index,
             "prior_cycle_numbers": [int(c["cycle_number"])
                                     for c in self.prior_cycles],
@@ -116,6 +206,9 @@ class ReviewPacket:
             "recomputed_verification_result_hash":
                 self.recomputed_verification_result_hash,
             "recomputed_evidence_digest": self.recomputed_evidence_digest,
+            "recomputed_verification_input_hash":
+                self.recomputed_verification_input_hash,
+            "binding_failures": list(self.binding_failures),
         }
 
     @property
@@ -199,6 +292,24 @@ class ReviewerInputPort:
                 recomputed=recomputed_verification,
             )
 
+        verification_input = ledger.verification_input(task_contract_id)
+        if verification_input is None:
+            raise ReviewRefused(
+                "the verification result has no recorded input packet",
+                task_contract_id=task_contract_id)
+        if str(verification_input["input_id"]) != str(verification["input_id"]):
+            raise ReviewRefused(
+                "the verification result does not cite this task's input packet",
+                task_contract_id=task_contract_id)
+        recomputed_verification_input = _verification_input_hash(
+            verification_input)
+        if recomputed_verification_input != str(verification_input["inputs_hash"]):
+            raise ReviewRefused(
+                "the verifier input packet does not recompute from its own fields",
+                task_contract_id=task_contract_id,
+                recorded=str(verification_input["inputs_hash"]),
+                recomputed=recomputed_verification_input)
+
         run = self._store.one(
             "SELECT * FROM backend_runs WHERE authorization_id = ? ORDER BY seq",
             (str(contract["authorization_id"]),),
@@ -219,11 +330,32 @@ class ReviewerInputPort:
                     evidence_id=str(evidence["evidence_id"]),
                 )
 
+        execution_input = self._store.one(
+            "SELECT * FROM task_execution_inputs WHERE task_contract_id = ?",
+            (task_contract_id,),
+        )
+        recomputed_execution_input = None
+        if execution_input is not None:
+            recomputed_execution_input = verify_execution_input_row(
+                execution_input)
+        run_dict = run.as_dict() if run else None
+        evidence_dict = evidence.as_dict() if evidence else None
+        attestation = _parse_attestation(evidence_dict, run_dict)
+        binding_failures = self._binding_failures(
+            contract=contract, authorization=authorization,
+            verification_input=verification_input, run=run,
+            evidence=evidence, execution_input=execution_input,
+            attestation=attestation)
+
         return ReviewPacket(
             task_contract=contract.as_dict(),
             authorization=authorization.as_dict(),
-            run=run.as_dict() if run else None,
-            evidence=evidence.as_dict() if evidence else None,
+            run=run_dict,
+            evidence=evidence_dict,
+            verification_input=verification_input.as_dict(),
+            execution_input=(execution_input.as_dict()
+                             if execution_input else None),
+            attestation=attestation,
             verification=verification.as_dict(),
             prior_cycles=tuple(row.as_dict()
                                for row in ledger.objection_cycles(task_contract_id)),
@@ -232,7 +364,96 @@ class ReviewerInputPort:
             recomputed_binding_hash=recomputed_binding,
             recomputed_verification_result_hash=recomputed_verification,
             recomputed_evidence_digest=recomputed_evidence_digest,
+            recomputed_verification_input_hash=recomputed_verification_input,
+            recomputed_execution_input_hash=recomputed_execution_input,
+            binding_failures=tuple(binding_failures),
         )
+
+    @staticmethod
+    def _binding_failures(*, contract, authorization, verification_input,
+                          run, evidence, execution_input,
+                          attestation) -> list[str]:
+        """Independently bind authored-source review to the exact submission."""
+        if str(contract["template_id"]) != "verify_authored_source.v1":
+            return []
+        failures: list[str] = []
+        if execution_input is None:
+            return ["execution_input_missing"]
+        if attestation is None:
+            return ["closed_attestation_missing_or_invalid"]
+
+        expected = {
+            "schema": "cis-contained-adapter-attestation-v1",
+            "operation": "verify_authored_source",
+            "worker_operation": "verify-authored-source",
+            "execution_input_hash": str(execution_input["execution_input_hash"]),
+            "task_contract_id": str(contract["task_contract_id"]),
+            "task_contract_hash": str(contract["task_contract_hash"]),
+            "authorization_binding_hash": str(authorization["binding_hash"]),
+            "entrypoint": str(execution_input["authorized_entrypoint"]),
+            "image": str(execution_input["worker_image"]),
+            "source_sha256": str(execution_input["candidate_sha256"]),
+            "vector_contract_sha256": str(
+                execution_input["vector_contract_sha256"]),
+            "trusted_runner_sha256": str(
+                execution_input["expected_trusted_runner_sha256"]),
+            "worker_sha256": str(execution_input["expected_worker_sha256"]),
+            "stopped_at": str(authorization["stopping_condition"]),
+            "returned_to": str(authorization["return_point"]),
+            "allowed_scope": ",".join(sorted(json.loads(
+                str(authorization["allowed_scope_json"])))),
+            "forbidden_actions": ",".join(sorted(json.loads(
+                str(authorization["forbidden_actions_json"])))),
+            "verdict": "SOURCE_PASS",
+            "classification": "SOURCE_PASS",
+            "attestation_valid": "true",
+            "attestation_failures": "none",
+            "worker_exit": "0",
+        }
+        if run is not None:
+            expected["adapter"] = str(run["adapter_id"])
+        for key, value in expected.items():
+            if attestation.get(key) != value:
+                failures.append(f"{key}_mismatch")
+        if run is None or str(run["status"]) != "completed" or int(
+                run["exit_code"]) != 0:
+            failures.append("run_result_not_source_pass")
+        try:
+            vectors = json.loads(bytes(
+                execution_input["vector_contract"]).decode("utf-8"))
+            declared_vectors = int(attestation["declared_vectors"])
+        except (TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            failures.append("declared_vectors_invalid")
+        else:
+            if not isinstance(vectors, list) or declared_vectors != len(vectors):
+                failures.append("declared_vectors_mismatch")
+
+        submitted = json.loads(str(
+            verification_input["submitted_artifacts_json"]))
+        independently_assembled = {
+            "execution_evidence": (str(evidence["content_hash"])
+                                   if evidence else None),
+            "run_result_hash": str(run["result_hash"]) if run else None,
+            "execution_input_hash": attestation["execution_input_hash"],
+            "candidate_source_sha256": attestation["source_sha256"],
+            "vector_contract_sha256": attestation["vector_contract_sha256"],
+        }
+        for name, value in independently_assembled.items():
+            if submitted.get(name) != value:
+                failures.append(f"verifier_input_{name}_mismatch")
+        if (verification_input["submitted_run_id"]
+                != (run["run_id"] if run else None)):
+            failures.append("verifier_input_run_mismatch")
+        if (verification_input["submitted_evidence_id"]
+                != (evidence["evidence_id"] if evidence else None)):
+            failures.append("verifier_input_evidence_mismatch")
+        if str(verification_input["recomputed_task_contract_hash"]) != str(
+                contract["task_contract_hash"]):
+            failures.append("verifier_input_task_contract_hash_mismatch")
+        if str(verification_input["recomputed_binding_hash"]) != str(
+                authorization["binding_hash"]):
+            failures.append("verifier_input_authorization_binding_mismatch")
+        return sorted(set(failures))
 
     def submitted_artifacts(self, packet: ReviewPacket) -> dict:
         """The reviewer's own reading of which declared artifacts are present.
@@ -253,6 +474,15 @@ class ReviewerInputPort:
                 str(packet.run["result_hash"]) if packet.run else None
             ),
             "module_contract_hash": module_contract_hash,
+            "execution_input_hash": (
+                packet.attestation.get("execution_input_hash")
+                if packet.attestation else None),
+            "candidate_source_sha256": (
+                packet.attestation.get("source_sha256")
+                if packet.attestation else None),
+            "vector_contract_sha256": (
+                packet.attestation.get("vector_contract_sha256")
+                if packet.attestation else None),
         }
 
 
@@ -270,6 +500,12 @@ def assess(packet: ReviewPacket, artifacts: Mapping[str, Any]) -> dict:
             "detail": {"verification_outcome": str(packet.verification["outcome"]),
                        "verification_reason_code":
                            str(packet.verification["reason_code"])},
+        })
+
+    if packet.binding_failures:
+        objections.append({
+            "objection": OBJECTION_BINDING_FAILED,
+            "detail": {"failures": list(packet.binding_failures)},
         })
 
     declared = json.loads(str(packet.task_contract["required_artifacts_json"]))
@@ -311,7 +547,9 @@ def assess(packet: ReviewPacket, artifacts: Mapping[str, Any]) -> dict:
     else:
         recovery = RECOVERY_REPLACEMENT_CANDIDATE
 
-    if any(o["objection"] == OBJECTION_ARTIFACT_ABSENT for o in objections):
+    if any(o["objection"] == OBJECTION_BINDING_FAILED for o in objections):
+        reason = REASON_BINDING_FAILED
+    elif any(o["objection"] == OBJECTION_ARTIFACT_ABSENT for o in objections):
         reason = REASON_ARTIFACTS_INCOMPLETE
     elif packet.prior_cycles:
         reason = REASON_NO_REVISED_SUBMISSION

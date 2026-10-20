@@ -174,9 +174,51 @@ VERIFY_MODULE_V1 = TaskTemplate(
     return_point="assurance:verification_inputs",
 )
 
+#: Units 2-3 of workstream 4.37. This frozen template names every binding the
+#: contained verification and deterministic Verifier now enforce: the
+#: execution-input authority itself, candidate, vector contract, entrypoint,
+#: worker image, trusted runner, worker and closed result classification. Its
+#: required artifacts are the proof values returned by the adapter and then
+#: cross-checked against the independently verified execution-input row.
+#: Production issuance of the verify_authored_source operation remains a
+#: separate integration unit; absence of such an authorization cannot weaken
+#: these checks or make another operation eligible for this template.
+VERIFY_AUTHORED_SOURCE_V1 = TaskTemplate(
+    template_id="verify_authored_source.v1",
+    operation="verify_authored_source",
+    path_envelope=("tests/{module_path}",),
+    required_checks=(
+        "task_contract_digest_recomputes",
+        "authorization_binding_recomputes",
+        "execution_input_binding_recomputes",
+        "candidate_source_binding_recomputes",
+        "vector_contract_binding_recomputes",
+        "authorized_entrypoint_binding_recomputes",
+        "worker_image_identity_recomputes",
+        "trusted_runner_identity_matches_expected",
+        "worker_identity_matches_expected",
+        "result_classification_recorded",
+    ),
+    required_artifacts=(
+        "execution_evidence",
+        "run_result_hash",
+        "execution_input_hash",
+        "candidate_source_sha256",
+        "vector_contract_sha256",
+    ),
+    forbidden_actions=_ALWAYS_FORBIDDEN,
+    stopping_condition=(
+        "stop when verify_authored_source.v1's declared checks have been "
+        "recorded against the target module's own task contract, or on the "
+        "first forbidden action"
+    ),
+    return_point="assurance:verification_inputs",
+)
+
 TEMPLATES: Mapping[str, TaskTemplate] = {
     template.template_id: template
-    for template in (RECONSTRUCT_MODULE_V1, VERIFY_MODULE_V1)
+    for template in (RECONSTRUCT_MODULE_V1, VERIFY_MODULE_V1,
+                     VERIFY_AUTHORED_SOURCE_V1)
 }
 
 

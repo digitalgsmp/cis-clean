@@ -1,0 +1,47 @@
+{
+  "module_id": "cis.assurance.recovery",
+  "responsibility": "Independently translates a verified objection cycle into an immutable operational self-assessment that bounds what a later recovery must preserve and may change, without granting execution authority.",
+  "layer": "L2",
+  "owned_authority": [
+    "operational_assessments"
+  ],
+  "reads": [
+    "task_contracts",
+    "task_execution_inputs",
+    "verification_results",
+    "review_results",
+    "objection_cycles"
+  ],
+  "writes": [
+    "operational_assessments"
+  ],
+  "mutation_interface": "OperationalSelfAssessment.assess appends at most one deterministic assessment per objection cycle; verify is read-only",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.authority.trajectory",
+    "cis.assurance.authority",
+    "cis.assurance.execution_input"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.execution.gateway",
+    "cis.execution.port",
+    "cis.execution.adapters.contained_worker",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion",
+    "cis.assurance.issuance"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process deterministic assessment over append-only authority; no model, network, candidate execution or host action",
+  "failure_boundary": "fail_closed — absent or malformed objection, review, verification or execution-input authority, any digest mismatch, an unknown recovery decision, or a task with no objection refuses before an assessment is appended",
+  "recovery_behavior": "Idempotent by objection cycle — an identical retry verifies and returns the existing assessment, while append-only SQL prevents replacement or reinterpretation",
+  "replacement_contract": "A replacement must independently recompute the objection, review, verification and execution-input facts; use the closed three-way disposition vocabulary; preserve target, vectors, entrypoint and apparatus identity; additionally preserve the candidate for evidence-only resubmission; permit only candidate_source, execution_evidence or nothing according to the recorded recovery decision; and remain unable to authorize or execute its own recommendation",
+  "evidence_produced": [
+    "one content-addressed operational_assessments row per assessed objection cycle",
+    "a closed disposition and failure class",
+    "explicit preserved bindings, permitted changes and mandatory recovery checks",
+    "a trajectory event recording the deterministic assessment outcome"
+  ],
+  "verification": "python3 -m unittest tests.test_operational_self_assessment -v"
+}

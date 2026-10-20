@@ -1,0 +1,18 @@
+{
+  "assessment_id": "osa-fab70972d71b",
+  "attempt_id": "rca-40bb27a97c76",
+  "child_authorization_id": "auth-tx-5caf9fffa343",
+  "child_promotion_decision": "PROMOTION_AUTHORIZED",
+  "child_review_outcome": "PASS",
+  "child_run_id": "run-auth-tx-5caf9fffa343",
+  "child_run_status": "completed",
+  "child_task_contract_id": "tc-45a2102eeb44",
+  "child_verification_outcome": "VERIFIED_PASS",
+  "host_action": "NONE_RECORD_ONLY",
+  "parent_authorization_id": "auth-tx-bf05beadb4be",
+  "parent_promotion_decision": "PROMOTION_DENIED",
+  "parent_review_outcome": "OBJECTIONS",
+  "parent_task_contract_id": "tc-79a8d345ab62",
+  "parent_verification_outcome": "VERIFIED_FAIL",
+  "schema": "cis-contained-recovery-production-proof-v1"
+}

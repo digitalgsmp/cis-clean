@@ -10,6 +10,7 @@
     "execution_authorizations",
     "backend_runs",
     "evidence_records",
+    "task_execution_inputs",
     "blueprint/reconstruction_manifest.json"
   ],
   "writes": [],
@@ -19,6 +20,7 @@
     "cis.authority.authorization",
     "cis.blueprint.manifest",
     "cis.assurance.task_contract",
+    "cis.assurance.execution_input",
     "cis.assurance.authority"
   ],
   "forbidden_dependencies": [
@@ -31,14 +33,15 @@
   ],
   "trust_domain": "cis_clean_control_host",
   "execution_location": "in-process, cis-clean application process; it executes nothing, re-runs nothing and has no worker",
-  "failure_boundary": "fail_closed — a task contract whose independent digest, state or hash domain does not recompute is REFUSED and no result is recorded at all, because a recorded VERIFIED_FAIL would legitimise a tampered row as something that was assessed; a missing, incomplete or non-recomputing submission is instead an assessment outcome and is recorded as VERIFIED_FAIL with a reason code; a required check this verifier cannot perform is VERIFIED_FAIL and never a silent pass",
+  "failure_boundary": "fail_closed — a task contract or task_execution_inputs authority row whose independent digest, state, hash domain or stored-byte digest does not recompute is REFUSED and no result is recorded at all, because a recorded VERIFIED_FAIL would legitimise tampered authority as something that was assessed; missing, malformed, incomplete or mismatched returned evidence is instead an assessment outcome and is recorded as VERIFIED_FAIL with a reason code; a required check this verifier cannot perform is VERIFIED_FAIL and never a silent pass",
   "recovery_behavior": "Idempotent — a task contract whose verification is already recorded returns that row instead of appending a second, since the submitted evidence is immutable and a second verification could only restate the first",
-  "replacement_contract": "A replacement must be a pure function of recorded authority with no clock, socket or environment input; must assemble its own inputs through its own port and persist them in verification_inputs rather than by altering backend_runs; must treat absent evidence as a recorded failure rather than silence; must refuse rather than assess a tampered task contract; and must remain unable to reach the reviewer or the promotion module through any chain of dependencies",
+  "replacement_contract": "A replacement must be a pure function of recorded authority with no clock, socket or environment input; must assemble its own inputs through its own port and persist them in verification_inputs rather than by altering backend_runs; must independently recompute task-contract and execution-input authority; must require the evidence content digest to bind the exact attestation text and durable run result; must parse only the closed contained-worker adapter attestation and bind its candidate, vectors, entrypoint, image, runner, worker and result classification to that authority; must treat absent or mismatched returned evidence as a recorded failure rather than silence; must refuse rather than assess tampered authority; and must remain unable to reach the reviewer or promotion module through any chain of dependencies",
   "evidence_produced": [
     "one verification_inputs row carrying the assembled submission, the digests the verifier recomputed, and assembled_by naming this module",
     "one verification_results row whose outcome, reason code, checks performed and findings reproduce exactly from the same ledger",
     "a VERIFIED_FAIL carrying MISSING_SUBMITTED_EVIDENCE when nothing was submitted",
-    "a TaskContractTampered, and no recorded result, when the task contract digest does not recompute"
+    "a TaskContractTampered or ExecutionInputTampered, and no recorded result, when authoritative input does not recompute",
+    "a VERIFIED_PASS only when the closed adapter attestation matches the exact authorized candidate, vectors, entrypoint, worker image, trusted runner, worker and closed result tuple"
   ],
-  "verification": "python3 -m unittest tests.test_assurance -v"
+  "verification": "python3 -m unittest tests.test_assurance tests.test_authored_source_verifier -v"
 }

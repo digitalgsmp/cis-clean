@@ -1,0 +1,45 @@
+{
+  "module_id": "cis.assurance.recovery_attempt",
+  "responsibility": "Sole owner of recovery_attempts: records the lineage from one verified replacement-required operational assessment to the fresh child task contract and execution-input binding issued for its replacement attempt, without claiming execution or granting authority to act.",
+  "layer": "L2",
+  "owned_authority": [
+    "recovery_attempts"
+  ],
+  "reads": [
+    "operational_assessments",
+    "task_contracts",
+    "task_execution_inputs"
+  ],
+  "writes": [
+    "recovery_attempts"
+  ],
+  "mutation_interface": "RecoveryAttemptAuthority.record appends at most one immutable attempt per assessment; verify, for_assessment and for_child are read-only",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.assurance.authority",
+    "cis.assurance.execution_input",
+    "cis.assurance.recovery"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.execution.gateway",
+    "cis.execution.port",
+    "cis.execution.adapters.contained_worker",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion",
+    "cis.assurance.issuance"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process deterministic recomputation over append-only authority; no model, network, candidate execution or host action",
+  "failure_boundary": "fail_closed — an assessment that is missing, malformed, or not disposed to require a replacement; a parent or child task contract or execution-input binding that fails to independently verify; a child that is not fresh, targets a different module or template, fails to preserve a required field, or does not actually change the candidate; a recovery generation beyond the fixed bound; or a retry naming a different child than the one already recorded all refuse before any row is appended",
+  "recovery_behavior": "Idempotent by assessment — an identical retry verifies and returns the existing attempt, while append-only SQL and a per-assessment uniqueness check prevent replacement or reinterpretation",
+  "replacement_contract": "A replacement must independently recompute the assessment, parent and child task-contract and execution-input facts rather than trust a caller's assertion, preserve every field the assessment declares preserved bit-for-bit, require the candidate to have actually changed, enforce the fixed generation bound, remain the only writer of recovery_attempts, and remain unable to authorize, execute, verify, review, or promote anything",
+  "evidence_produced": [
+    "one content-addressed recovery_attempts row per declared recovery attempt",
+    "a forward link from assessment to the child authorization, task contract and execution-input bindings issued for the attempt",
+    "the recomputed recovery generation",
+    "a refusal naming any unpreserved field, unchanged candidate, or exceeded generation bound"
+  ],
+  "verification": "python3 -m unittest tests.test_recovery_attempt -v"
+}

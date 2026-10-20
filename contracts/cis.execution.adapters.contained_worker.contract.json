@@ -23,16 +23,18 @@
   ],
   "trust_domain": "untrusted_execution",
   "execution_location": "host container runtime, invoking a sealed nonroot image",
-  "failure_boundary": "fail_closed - an unverified token, an undeclared operation, an empty allowed scope, an absent source, absent vectors or an absent entrypoint refuses before any container starts, and a worker that produces no evidence is reported as HARNESS_FAILURE rather than as any statement about the source",
-  "recovery_behavior": "Each dispatch is independent and writes no authority: a private temporary contract and workspace directory is created and removed on every path including failure, the container runs with --rm, and recovery is a fresh authorization rather than a retry of a spent one. A container timeout is reported as RESOURCE_EXHAUSTION infrastructure rather than as a source verdict",
-  "replacement_contract": "A replacement must accept the same ExecutionRequest, preserve the worker's six-argument frozen invocation, apply the same closed verdict mapping in which only SOURCE_PASS yields status completed with exit code zero, write no evidence of its own, and leave backend_runs and evidence_records recording entirely to cis.execution.gateway",
+  "failure_boundary": "fail_closed - the adapter declares that a verified frozen task contract and execution-input binding are mandatory and exposes its configured image identity for gateway comparison; an unverified token, an undeclared operation, an empty allowed scope, absent inputs, or candidate/vector bytes that do not recompute to their authorized digests refuse before any container starts; missing, malformed, duplicate, unexpected or request-inconsistent worker evidence, an exit/verdict conflict, or an apparatus digest mismatch is reported as HARNESS_FAILURE rather than as any statement about the source; a supervised timeout is classified as timeout only after deterministic removal and absence verification, otherwise it is invalid_artifacts",
+  "recovery_behavior": "Each dispatch is independent and writes no authority: a private temporary contract and workspace directory is created and removed on every path including failure, the container has a request-derived non-caller-controlled name and runs with --rm, and recovery uses the next distinct preauthorized supervision route rather than replaying a spent authorization. The adapter meters the exact authorized wall budget up to its fixed backstop, reports zero token and provider cost because it performs no model/provider call, and proves a timed-out container absent before permitting fallback",
+  "replacement_contract": "A replacement must declare its need for the same frozen task-contract and execution-input authority, expose the immutable image, trusted-runner and worker identities production issuance will bind, accept the same authority-derived ExecutionRequest, enforce and report every declared supervision budget dimension, deterministically terminate and prove absence after timeout, preserve the worker's six-argument frozen invocation, apply the same closed verdict mapping in which only SOURCE_PASS yields status completed with exit code zero, write no authority of its own, and leave backend_runs and evidence_records recording entirely to cis.execution.gateway",
   "evidence_produced": [
     "verdict and classification naming SOURCE_PASS, SOURCE_FAIL, HARNESS_FAILURE or RESOURCE_EXHAUSTION",
     "source_sha256 of the exact model-authored artifact executed",
     "vector_contract_sha256 of the exact declared test-vector contract",
     "task_contract_bundle_sha256 and authorization_binding_hash binding the run to its authorization",
+    "task_contract_hash and execution_input_hash binding the returned attestation to the frozen task and exact authorized inputs",
     "trusted_runner_sha256 and worker_sha256 attesting the exact bytes that produced the verdict",
-    "worker_exit and declared_vectors"
+    "worker_exit and declared_vectors",
+    "measured wall_time_ms plus structurally zero tokens_used and cost_micros for supervised execution"
   ],
-  "verification": "PYTHONPATH=src python3 -m unittest tests.test_contained_worker_adapter -v"
+  "verification": "PYTHONPATH=src python3 -m unittest tests.test_execution_input_gateway tests.test_contained_worker_adapter -v"
 }

@@ -53,6 +53,42 @@ class ExecutionRefused(CisError):
     code = "EXECUTION_REFUSED"
 
 
+class ExecutionTimedOut(ExecutionRefused):
+    """A backend did not return within its authorized wall-time budget."""
+
+    code = "EXECUTION_TIMED_OUT"
+
+
+class ExecutionBudgetExhausted(ExecutionRefused):
+    """A backend exhausted a token or cost budget before completing."""
+
+    code = "EXECUTION_BUDGET_EXHAUSTED"
+
+
+class ExecutionPermissionWaitRefused(ExecutionRefused):
+    """A backend stopped waiting on an interactive permission grant."""
+
+    code = "EXECUTION_PERMISSION_WAIT_REFUSED"
+
+
+class ExecutionProviderFailure(ExecutionRefused):
+    """A backend's network transport or upstream provider failed."""
+
+    code = "EXECUTION_PROVIDER_FAILURE"
+
+
+class ExecutionOutputIncomplete(ExecutionRefused):
+    """A backend returned empty or incomplete output for the request."""
+
+    code = "EXECUTION_OUTPUT_INCOMPLETE"
+
+
+class ExecutionArtifactInvalid(ExecutionRefused):
+    """A backend produced an artifact that does not stand up on its own."""
+
+    code = "EXECUTION_ARTIFACT_INVALID"
+
+
 # ---------------------------------------------------------------------------
 # Slice-2 assurance increment
 # ---------------------------------------------------------------------------
@@ -81,6 +117,29 @@ class TaskContractTampered(AssuranceRefused):
     code = "TASK_CONTRACT_TAMPERED"
 
 
+class ExecutionInputRefused(AssuranceRefused):
+    """An execution-input binding was refused before anything was recorded.
+
+    Raised for every pre-append refusal: an unknown task contract, a forward
+    link that does not match the contract, a digest that does not match the
+    exact bytes beside it, a blank entrypoint or worker identity, a binding
+    that does not recompute, and a task contract that already has a binding.
+    """
+
+    code = "EXECUTION_INPUT_REFUSED"
+
+
+class ExecutionInputTampered(AssuranceRefused):
+    """A recorded execution-input binding no longer stands up on its own.
+
+    Either the row carries an unknown hash domain, or its stored bytes no
+    longer hash to the digests recorded beside them, or its binding hash does
+    not recompute from the stored fields.
+    """
+
+    code = "EXECUTION_INPUT_TAMPERED"
+
+
 class VerificationRefused(AssuranceRefused):
     """The verifier refused to produce a result over unusable inputs."""
 
@@ -103,6 +162,41 @@ class PromotionRefused(AssuranceRefused):
     """A promotion decision could not be recorded at all."""
 
     code = "PROMOTION_REFUSED"
+
+
+class OperationalAssessmentRefused(AssuranceRefused):
+    """An objection could not become a trustworthy recovery specification."""
+
+    code = "OPERATIONAL_ASSESSMENT_REFUSED"
+
+
+class RecoveryAttemptRefused(AssuranceRefused):
+    """A bounded recovery could not be independently verified or recorded."""
+
+    code = "RECOVERY_ATTEMPT_REFUSED"
+
+
+class RecoveryExecutionRefused(AssuranceRefused):
+    """A replacement candidate could not be carried through the existing
+    authority path: a missing, stale, non-ALLOW, wrongly scoped or
+    self/same-parent child authorization refuses before issuance or dispatch."""
+
+    code = "RECOVERY_EXECUTION_REFUSED"
+
+
+class WorkerSupervisionRefused(CisError):
+    """A worker plan, attempt transition, budget, or fallback was refused."""
+
+    code = "WORKER_SUPERVISION_REFUSED"
+
+
+class WorkerSessionRefused(CisError):
+    """A worker-model session header, request or event was refused rather
+    than recorded: an unverified route, a disagreeing retry, a malformed
+    digest, a duplicate authorization/route, or a request issued against a
+    nonterminal or closed session."""
+
+    code = "WORKER_SESSION_REFUSED"
 
 
 class ProjectionRegenerationRefused(CisError):

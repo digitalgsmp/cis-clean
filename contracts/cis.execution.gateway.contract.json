@@ -1,22 +1,27 @@
 {
   "module_id": "cis.execution.gateway",
-  "responsibility": "Is the sole call path from CIS to any execution backend and refuses to dispatch without a verified ALLOW.",
+  "responsibility": "Is the sole call path from CIS to any execution backend, refuses to dispatch without a verified ALLOW, and — for a budgeted attempt named by a bound supervision-route resolver — derives the authorization, adapter and exact budget solely from that recorded route and independently checks measured usage against it.",
   "layer": "L2",
   "owned_authority": [],
   "reads": [
     "execution_authorizations",
-    "trajectory_events"
+    "trajectory_events",
+    "task_contracts",
+    "task_execution_inputs"
   ],
   "writes": [],
   "mutation_interface": "none — it appends runs, evidence and trajectory events only through the modules that own them",
   "depends_on": [
     "cis.execution.port",
+    "cis.execution.adapters.contained_worker",
     "cis.execution.adapters.deterministic_mock",
     "cis.authority.authorization",
     "cis.authority.runs",
     "cis.authority.evidence",
     "cis.authority.trajectory",
-    "cis.policy.compiler"
+    "cis.policy.compiler",
+    "cis.assurance.task_contract",
+    "cis.assurance.execution_input"
   ],
   "forbidden_dependencies": [
     "cis.workbench.service",
@@ -25,13 +30,15 @@
   ],
   "trust_domain": "cis_clean_control_host",
   "execution_location": "in-process, cis-clean application process",
-  "failure_boundary": "fail_closed — unknown authorization, non-recomputing binding, non-ALLOW verdict, stale objective, moved baseline, undeclared operation, unavailable backend, missing or malformed mandatory policy envelope, mismatched task-contract or selector binding, widened policy scope, unsupported policy obligations, incomplete authorization preflight, missing performed checks, or policy evidence not returned exactly as label=verified all refuse",
+  "failure_boundary": "fail_closed — unknown authorization, non-recomputing binding, non-ALLOW verdict, stale objective, moved baseline, undeclared operation, unavailable backend, missing or malformed mandatory policy envelope, mismatched task-contract or selector binding, widened policy scope, unsupported policy obligations, incomplete authorization preflight, missing performed checks, policy evidence not returned exactly as label=verified, missing or non-recomputing execution input, mismatched forward links or image identity, non-UTF-8 candidate, noncanonical or empty vectors, and an unsafe entrypoint all refuse before the execution claim and adapter entry; for a supervised dispatch, no bound route resolver, a route that does not match the closed schema, a route naming a different adapter than the one this gateway is bound to, and an adapter whose enforced_budget_dimensions is not exactly wall_time_ms, token_limit and cost_limit_micros all refuse before the claim as well, and missing usage, measured wall time over the route's bound and measured tokens or cost over the route's bound each refuse, as the existing typed incomplete-output, timeout and budget-exhaustion errors, after adapter entry but leave the atomic claim standing exactly as any other post-entry adapter failure does",
   "recovery_behavior": "Every refusal is appended as a trajectory event and an atomic attempt claim remains after adapter entry, so an interrupted attempt leaves evidence rather than silence and recovery requires a new authorization",
-  "replacement_contract": "A replacement must build the request from recorded authorization rather than caller input, require and independently recompute a current policy envelope for adapters that declare it mandatory, refuse obligations outside the adapter's declared closed support, merge restrictions into the token-covered request, require exact label=verified result evidence, atomically claim the authorization before adapter entry, and issue a single-use capability only after that claim; the operation is never a dispatch argument",
+  "replacement_contract": "A replacement must build the request from recorded authority rather than caller input, expose the selected adapter's complete immutable image, trusted-runner and worker identity to production issuance, require and independently recompute the frozen verify_authored_source.v1 contract and its execution-input row when an adapter declares them mandatory, cross-check every forward link and immutable image identity, derive candidate, canonical vectors, entrypoint and expected digests only from that authority into the token-covered request, require and independently recompute applicable policy, atomically claim the authorization before adapter entry, and issue a single-use capability only after that claim; the operation is never a dispatch argument and the payload is never caller supplied. For dispatch_supervised, the authorization id, adapter id and exact ExecutionBudget are derived solely from the route a bound resolver returns for one (supervision_id, route_index) — the caller supplies none of them — that budget rides in the same token-covered request as any other, and after adapter entry the gateway independently compares reported ExecutionUsage against the route's bound before trusting a completed result; it reaches the route only through that resolver seam, never by importing the module that owns supervision plans, so the two modules cannot cycle.",
   "evidence_produced": [
     "execution_dispatched, execution_completed and execution_refused trajectory events",
     "atomic execution_attempt_claims row before adapter entry",
-    "backend_runs row with opaque adapter id and request hash after a result"
+    "backend_runs row with opaque adapter id and request hash after a result",
+    "one admitted execution-evidence record whose content digest binds the exact returned attestation text and the durable run result hash, and — for any usage-bearing result — the exact measured ExecutionUsage mapping, so a supervisor can independently read and validate it when resuming after an interruption; ordinary unmetered evidence content is unchanged and remains byte-compatible",
+    "measured ExecutionUsage returned alongside a completed supervised dispatch, for a later supervisor to record"
   ],
-  "verification": "python3 -m unittest tests.test_execution -v"
+  "verification": "python3 -m unittest tests.test_execution tests.test_execution_input_gateway -v"
 }

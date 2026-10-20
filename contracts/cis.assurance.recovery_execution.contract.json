@@ -1,0 +1,49 @@
+{
+  "module_id": "cis.assurance.recovery_execution",
+  "responsibility": "Carries one independently authorized replacement candidate from a replacement-required operational assessment through production issuance, the existing execution gateway, and the existing verifier, reviewer and promotion facades, without authorizing its own recommendation.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "operational_assessments",
+    "task_contracts",
+    "execution_authorizations",
+    "task_execution_inputs",
+    "execution_attempt_claims",
+    "backend_runs",
+    "verification_results",
+    "review_results",
+    "promotion_decisions"
+  ],
+  "writes": [],
+  "mutation_interface": "none — it appends only through cis.assurance.issuance, cis.assurance.recovery_attempt, cis.execution.gateway, cis.assurance.verifier, cis.assurance.reviewer and cis.assurance.promotion, which remain the authority owners",
+  "depends_on": [
+    "cis.authority.authorization",
+    "cis.authority.runs",
+    "cis.blueprint.manifest",
+    "cis.assurance.authority",
+    "cis.assurance.recovery",
+    "cis.assurance.recovery_attempt",
+    "cis.assurance.issuance",
+    "cis.execution.gateway",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.execution.port",
+    "cis.execution.adapters.contained_worker",
+    "cis.worker.contained_nonroot"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process; it dispatches at most one real backend execution per child authorization and performs no host action itself",
+  "failure_boundary": "fail_closed — an assessment not disposed to require a replacement candidate, a child authorization that is missing, stale, not an ALLOW, scoped to a different operation or module than the assessed parent, or identical to the parent's own authorization, all refuse before issuance or dispatch, and every refusal from issuance, the recovery-attempt lineage, the gateway, the verifier, the reviewer or promotion propagates rather than being absorbed",
+  "recovery_behavior": "Resumable per assessment — an already frozen child contract and bound execution input, an already recorded recovery attempt, an already claimed and completed dispatch, an already recorded review and an already recorded promotion decision are each reused exactly as their own owner left them rather than reissued, redispatched or re-decided",
+  "replacement_contract": "A replacement must derive permission only from an already recorded, independently authorized child ALLOW naming verify_authored_source and the assessed parent's own target module, must never construct its own child authorization, must issue, record lineage, dispatch, verify, review and promote only through the existing single owners of each step, must never treat a worker's self-report as acceptance, must perform no host action, and must leave a failed verification or review unable to reach PROMOTION_AUTHORIZED",
+  "evidence_produced": [
+    "a recovery-execution result naming the assessment, the parent and child task-contract ids, the recovery-attempt id, the dispatched run id and its status",
+    "the independently recorded verification outcome, review outcome and promotion decision for the child task contract",
+    "a refusal naming a missing, self-same-as-parent or wrongly scoped child authorization before any issuance or dispatch"
+  ],
+  "verification": "python3 -m unittest tests.test_recovery_execution -v"
+}

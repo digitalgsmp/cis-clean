@@ -27,12 +27,13 @@
   "execution_location": "in-process, cis-clean application process; no filesystem, network or host access of any kind",
   "failure_boundary": "fail_closed — an unknown template, an authorization that does not verify as a current ALLOW, an authorization naming no target module, a template operation that disagrees with the authorized operation, an absolute, escaping or reference-environment path, and any requested path outside the compiled envelope each refuse before a task contract exists",
   "recovery_behavior": "Pure and stateless, so a retry over unchanged authority compiles a byte-identical task contract with an identical digest; nothing partial can be left behind because nothing is written",
-  "replacement_contract": "A replacement must compile only from a frozen template and recorded authority, never from caller-supplied scope; must hash into a domain tag distinct from every other CIS hash scheme; must permit narrowing and refuse widening of the template envelope; must create contracts in state FROZEN and no other state; and must expose a row-level digest recomputation any independent reader can call without it",
+  "replacement_contract": "A replacement must compile only from a frozen template and recorded authority, never from caller-supplied scope; must hash into a domain tag distinct from every other CIS hash scheme; must permit narrowing and refuse widening of the template envelope; must preserve verify_authored_source.v1 checks and artifacts as explicit fail-closed requirements; must create contracts in state FROZEN and no other state; and must expose a row-level digest recomputation any independent reader can call without it",
   "evidence_produced": [
     "a FrozenTaskContract whose digest recomputes from its own fields under the declared hash domain",
     "a ScopeWideningRefused naming the requested paths, the compiled envelope and the paths outside it",
     "a TaskContractTampered whenever a stored row's digest, state or hash domain does not recompute",
-    "a deterministic task_contract_id derived from the authorization and the template"
+    "a deterministic task_contract_id derived from the authorization and the template",
+    "verify_authored_source.v1 requirements that explicitly name every execution-input, candidate, vector, entrypoint, worker and result-classification binding"
   ],
-  "verification": "python3 -m unittest tests.test_assurance -v"
+  "verification": "python3 -m unittest tests.test_assurance tests.test_verify_authored_source_template -v"
 }
