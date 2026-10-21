@@ -1,0 +1,47 @@
+{
+  "classification": "explicitly authorized transitional advisory research; not CIS acceptance",
+  "claude_independent": {
+    "session_id": "2c4e7081-54da-45b2-9831-230d51e6d016",
+    "requested_model": "sonnet",
+    "reported_models": [
+      "claude-sonnet-5",
+      "claude-haiku-4-5"
+    ],
+    "reported_list_cost_usd": 0.2903038,
+    "web_search_requests": 2,
+    "terminal_reason": "completed",
+    "note": "Claude CLI reports list-basis cost metadata; subscription-backed use does not establish a CIS cost_micros value."
+  },
+  "qwen_independent": {
+    "generation_id": "gen-1792620375-rdwlHUIkhe9Vrb2deqDM",
+    "model": "qwen/qwen3.7-max",
+    "prompt_tokens": 301370,
+    "completion_tokens": 8627,
+    "total_tokens": 309997,
+    "reported_cost_usd": 0.308630265,
+    "web_search_requests": 13,
+    "tool_calls_executed": 18
+  },
+  "claude_cross_review": {
+    "session_id": "f3a3fd74-e68b-4cbb-bd98-264465a7534c",
+    "requested_model": "sonnet",
+    "reported_models": [
+      "claude-sonnet-5",
+      "claude-haiku-4-5"
+    ],
+    "reported_list_cost_usd": 0.8288836,
+    "web_search_requests": 10,
+    "terminal_reason": "completed",
+    "note": "Claude CLI reports list-basis cost metadata; subscription-backed use does not establish a CIS cost_micros value."
+  },
+  "qwen_cross_review": {
+    "generation_id": "gen-1792620536-HJGmSV4YIiRZqOkquteU",
+    "model": "qwen/qwen3.7-max",
+    "prompt_tokens": 159807,
+    "completion_tokens": 7574,
+    "total_tokens": 167381,
+    "reported_cost_usd": 0.224851075,
+    "web_search_requests": 6,
+    "tool_calls_executed": 11
+  }
+}

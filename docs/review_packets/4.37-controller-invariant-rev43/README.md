@@ -7,6 +7,17 @@ an independent authority. The authoritative record is
 
 Status: `AUTHORITATIVE_REGISTERED_ROLE_CONTROLLER_INVARIANT`
 
+## Later reconciliation
+
+Continuity revision 44 preserves this controller invariant as the destination
+for normal governed execution, but supersedes its unconditional controller-first
+build order and adapts its transitional interpretation. Brain and Workbench now
+lead queue 4.37 from the top of the pipeline downward; downstream controller
+work is pulled forward only when it is a demonstrated dependency. Explicitly
+authorized transitional model research may produce advisory evidence, but is
+not governed acceptance. See
+`../4.37-brain-app-server-session-rev44-46/README.md`.
+
 ## Governing invariant
 
 No model execution may occur outside a registered, role-specific CIS-owned

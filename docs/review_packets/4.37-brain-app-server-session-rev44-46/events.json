@@ -1,0 +1,83 @@
+[
+  {
+    "id": 256,
+    "task": "4.37",
+    "revision": 44,
+    "kind": "reconciliation",
+    "status": "preserve_invariant_adapt_transition_and_supersede_build_order",
+    "actor": "eric_recorded_by_codex",
+    "summary": "Revision 43 controller invariant is preserved as the normal acceptance destination while its transitional interpretation and controller-first build order are revised",
+    "body": "OWNER CLARIFICATION, 2026-10-21. Preserve revision 43 as the destination invariant for the normal accepted pipeline: every model role ultimately executes through a registered CIS-owned role-specific controller, no model self-accepts, and CIS authority alone governs acceptance and promotion. Adapt its transitional interpretation: while contained routes are incomplete, explicitly authorized raw Claude Code, OpenRouter/Qwen, or Codex research may investigate architecture and produce clearly labeled advisory evidence. Such calls are not governed acceptance, promotion evidence, or proof that the final route exists. Supersede revision 43's controller-first build consequence as an unconditional execution sequence. Workbench and Brain are the spearhead of CIS. Work queue 4.37 proceeds top-down from human conversation through Brain deliberation, obstacle handling, governance rejection/correction and Card Factory, then downward through the pipeline. Detour into Claude, Hermes, Qwen, or other downstream controller construction only when dependency analysis demonstrates it blocks the next Brain/Workbench milestone. Provisional token, cost, or routing rules that are not real enforcement boundaries must not be treated as immutable architecture. The mission remains construction of the controlled environment.",
+    "evidence_refs": [
+      "dev_continuity_events:4.37:43",
+      "docs/review_packets/4.37-brain-app-server-session-rev44-46/CODEX_BRAIN_SYNTHESIS.md"
+    ],
+    "source_refs": [
+      "owner-dialogue:2026-10-21:pragmatic-transitional-review",
+      "owner-dialogue:2026-10-21:workbench-and-brain-spearhead-top-down"
+    ],
+    "against_revision": 43,
+    "request_id": "codex-20261021-brain-workbench-top-down-reconcile-rev43-v1",
+    "request_hash": "ef76636884861b026abe1b55a12145fb7adea0cf9bfb4e028a2a61e75460ddf8",
+    "created_at": "2026-10-21 22:25:10"
+  },
+  {
+    "id": 257,
+    "task": "4.37",
+    "revision": 45,
+    "kind": "decision",
+    "status": "AUTHORITATIVE_BRAIN_WORKBENCH_APP_SERVER_EXPERIMENT_DIRECTION",
+    "actor": "eric_recorded_by_codex",
+    "summary": "Queue 4.37 proceeds with a reversible Codex app-server Brain and Workbench experiment under explicit CIS containment and correction contracts",
+    "body": "OWNER-AUTHORIZED DIRECTION. Treat Codex app-server as the candidate integration adapter for the Brain role using the owner's ChatGPT subscription. It is not the implementation-worker adapter and does not replace Hermes, Claude/Menter, Qwen/OpenRouter, the deterministic verifier, or CIS authority. Permanent architecture judgments: add a narrow DELIBERATE boundary upstream of Card Factory rather than weakening the worker ALLOW gateway; CIS remains authority and app-server thread/goal/approval state is evidence only; keep generic contracts provider-neutral; make cost_micros optional and provider-specific while retaining real wall-time and token/usage controls; require structured Brain obstacle reporting that distinguishes robust repair, justified temporary workaround, and human escalation; governance rejection must state the defect and required correction, and correction/resubmission must remain visible in Workbench; normalize app-server events into provider-neutral Workbench activity. The first slice is reversible and top-down: one pinned stdio app-server, one Brain deliberation thread, experimental API disabled, a protocol method allowlist, hosted web search disabled for the contained Brain, no direct implementation or repository-write route, structured output, one forced rejection/correction cycle, one forced process-failure recovery test, and observation of shared subscription quota. The idea of a separate guidance agent or skill is not a new queue item now; its desired behavior is folded into the Brain deliberation and governance contract until evidence shows a distinct component is needed.",
+    "evidence_refs": [
+      "docs/review_packets/4.37-brain-app-server-session-rev44-46/REVIEW_PACKET.md",
+      "docs/review_packets/4.37-brain-app-server-session-rev44-46/CLAUDE_INDEPENDENT_REVIEW.md",
+      "docs/review_packets/4.37-brain-app-server-session-rev44-46/QWEN_INDEPENDENT_REVIEW.md",
+      "docs/review_packets/4.37-brain-app-server-session-rev44-46/CLAUDE_CROSS_REVIEW.md",
+      "docs/review_packets/4.37-brain-app-server-session-rev44-46/QWEN_CROSS_REVIEW.md",
+      "docs/review_packets/4.37-brain-app-server-session-rev44-46/CODEX_BRAIN_SYNTHESIS.md",
+      "claude-code:session:2c4e7081-54da-45b2-9831-230d51e6d016",
+      "openrouter:qwen:gen-1792620375-rdwlHUIkhe9Vrb2deqDM",
+      "claude-code:session:f3a3fd74-e68b-4cbb-bd98-264465a7534c",
+      "openrouter:qwen:gen-1792620536-HJGmSV4YIiRZqOkquteU"
+    ],
+    "source_refs": [
+      "owner-dialogue:2026-10-21:app-server-investigation",
+      "owner-dialogue:2026-10-21:manual-multi-lineage-review-method",
+      "https://learn.chatgpt.com/docs/app-server",
+      "https://learn.chatgpt.com/docs/web-search",
+      "https://learn.chatgpt.com/docs/auth",
+      "https://developers.openai.com/blog/codex-as-a-platform"
+    ],
+    "against_revision": null,
+    "request_id": "codex-20261021-brain-app-server-experiment-direction-v1",
+    "request_hash": "9756a011e0cb498c5f274e2086c63840f927170cfa566cb23178c5d364b3e2c0",
+    "created_at": "2026-10-21 22:25:10"
+  },
+  {
+    "id": 258,
+    "task": "4.37",
+    "revision": 46,
+    "kind": "contradiction",
+    "status": "OPEN_APP_SERVER_BRAIN_CONTAINMENT_AND_DEPENDENCY_PROOF",
+    "actor": "eric_recorded_by_codex",
+    "summary": "The app-server Brain direction is promising but cannot be called governed until containment, recovery, quota, and Workbench behavior are proven",
+    "body": "OPEN PROOF OBLIGATION. The advisory Claude and Qwen reviews found no fatal architecture conflict, but they do not constitute CIS acceptance. Current primary documentation describes app-server as experimental and unsupported for production workloads. Hosted web_search is outside command-sandbox network controls; thread/shellCommand and experimental process/spawn can execute outside the ordinary sandbox; thread/inject_items can alter model-visible history outside a normal user turn; app-server goal budget limits are cooperative steering rather than an external hard stop; WebSocket is unsuitable; subscription authentication and quota are account-level failure and contention points; and MCP startup or mid-session failures can block or crash operation. Closure requires a pinned stdio-only Brain adapter with an explicit method allowlist, experimentalApi disabled, contained tool policy, external wall-time and token enforcement, structured output and correction/resubmission, normalized Workbench events, authentication/usage-limit failure states, process-crash recovery without blind resume, and evidence that no downstream controller work is pulled forward unless it is a demonstrated dependency. Until that proof exists, app-server output is advisory and the Brain route is not an accepted governed pipeline route.",
+    "evidence_refs": [
+      "docs/review_packets/4.37-brain-app-server-session-rev44-46/CLAUDE_CROSS_REVIEW.md",
+      "docs/review_packets/4.37-brain-app-server-session-rev44-46/QWEN_CROSS_REVIEW.md",
+      "docs/review_packets/4.37-brain-app-server-session-rev44-46/CODEX_BRAIN_SYNTHESIS.md"
+    ],
+    "source_refs": [
+      "https://learn.chatgpt.com/docs/app-server",
+      "https://learn.chatgpt.com/docs/web-search",
+      "https://learn.chatgpt.com/docs/agent-approvals-security",
+      "owner-dialogue:2026-10-21:no-false-expectations"
+    ],
+    "against_revision": null,
+    "request_id": "codex-20261021-open-app-server-brain-proof-v1",
+    "request_hash": "f44d4ac413ae3d904013d6bea87a5a2e1ad3debb62615172f0f1294a6a76238d",
+    "created_at": "2026-10-21 22:25:10"
+  }
+]
