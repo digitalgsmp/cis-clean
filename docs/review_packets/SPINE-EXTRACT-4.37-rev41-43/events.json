@@ -1,0 +1,50 @@
+[
+  {
+    "id": 253,
+    "task": "4.37",
+    "revision": 41,
+    "kind": "user_instruction",
+    "status": "COORDINATOR_PREFLIGHT_AND_CAPABILITY_RECONCILIATION_REQUIRED",
+    "actor": "eric_recorded_by_codex",
+    "summary": "The clean CIS development loop must begin with an enforced Brain coordinator preflight and capability reconciliation gate before Card Factory or worker dispatch",
+    "body": "OWNER DIRECTION. The functioning CIS application and operational source of truth must be produced in /mnt/projects/cis-clean. Before focusing on Card Factory implementation, reconstruct an enforced coordinator preflight in the clean system. Codex occupies the human-supervised Brain role until an automated coordinator is authorized. Every development action must first consume the active objective, current queue item, dependency neighborhood, unresolved continuity and contradictions, relevant historical capabilities recovered from filesystem database and KB evidence, clean reconstruction status, prior failures, reusable verification, and budget/provider state. Questions and memory fragments are retrieval cues and may not redirect the objective. Maintain a source-linked capability reconciliation projection in which every discovered capability has a stable identity, historical status, clean status, activation status, queue linkage, dependencies, destination module, verification evidence, and explicit disposition or deferral reason. This projection is not a second queue and cannot mutate task authority. A deterministic completeness gate must block Card Factory compilation and model dispatch when relevant capabilities or unresolved contradictions are omitted. Card Factory is downstream of this gate. Direct Codex-to-Claude or other model dispatch outside the governed packet, authorization, supervisor, verification, Qwen review, reconciliation, and acceptance path is not an accepted development route. Historical implementations are recovery sources to be reconstructed into cis-clean, not permanent parallel runtime dependencies. First restore the failing clean baseline, then build this coordinator preflight and capability reconciliation foundation, then reconstruct Card Factory and the remaining governed development loop in dependency order.",
+    "evidence_refs": ["cis-clean:14ce4eb915cf8f7c357126d607103d2553725817", "full-suite:543-ran-6-failed"],
+    "source_refs": ["owner-confirmation:2026-10-20", "handoff:CIS-CODEX-DEVELOPMENT-COORDINATOR-HANDOFF"],
+    "against_revision": null,
+    "request_id": "codex-20261020-coordinator-preflight-capability-reconciliation-v1",
+    "request_hash": "8f54e86e06c82fcb337f9617460a8b759769917d562e83370d8bdaa85ce8d7cb",
+    "created_at": "2026-10-20 18:40:28"
+  },
+  {
+    "id": 254,
+    "task": "4.37",
+    "revision": 42,
+    "kind": "contradiction",
+    "status": "OPEN_QWEN_REVIEW_ROUTE_NOT_DETERMINISTICALLY_ENFORCED",
+    "actor": "eric_recorded_by_codex",
+    "summary": "Promotion currently accepts a deterministic built-in reviewer lineage string without proving that the required Qwen adversarial reviewer actually ran",
+    "body": "Live inspection on 2026-10-20 establishes that cis.assurance.reviewer performs valuable independent deterministic packet and binding checks, but REVIEWER_LINEAGE is a hard-coded logical label and review_results.reviewer_lineage is an unconstrained text field. Promotion requires a bound PASS review but does not require a governed Qwen model request, provider/model identity, response artifact, or proof that the reviewer lineage differs from the implementer. Therefore the current path can reach PROMOTION_AUTHORIZED without Qwen. Required correction: preserve the deterministic reviewer as the evidence-binding/adjudication layer; add a provider-neutral governed reviewer-route receipt bound to the exact task contract, verification result, candidate/evidence packet, worker supervision route, model request, provider-reported model identity, structured response and response digest; enforce a policy-selected reviewer lineage whose current required route is Qwen; prove it differs from the implementer lineage; and make promotion fail closed when the receipt is missing, empty, stale, forged, timed out, same-lineage, wrong-candidate, invalid-schema or outside budget. Fallback requires a separately authorized different-lineage reviewer route and may not silently fall back to Codex or Claude. This is a deterministic requirement for 4.37 acceptance, not documentation and not a claim that Qwen reasoning itself is deterministic. No current Card Factory or worker implementation is accepted until its required Qwen review is present and bound.",
+    "evidence_refs": ["cis-clean:src/cis/assurance/reviewer.py:REVIEWER_LINEAGE", "cis-clean:src/cis/assurance/promotion.py:PromotionRecorder.evaluate", "cis-clean:migration-0004:review_results"],
+    "source_refs": ["owner-instruction:2026-10-20"],
+    "against_revision": null,
+    "request_id": "codex-20261020-qwen-review-enforcement-gap-v1",
+    "request_hash": "cc35716a1356392d1a93f579509b5b0057a6eeb334945967063d311e100bf6d0",
+    "created_at": "2026-10-20 19:57:25"
+  },
+  {
+    "id": 255,
+    "task": "4.37",
+    "revision": 43,
+    "kind": "decision",
+    "status": "AUTHORITATIVE_REGISTERED_ROLE_CONTROLLER_INVARIANT",
+    "actor": "eric_recorded_by_codex",
+    "summary": "Every model role, including Brain, must execute only through a registered CIS-owned role-specific controller",
+    "body": "AUTHORITATIVE BUILD INVARIANT — NO MODEL EXECUTION OUTSIDE A REGISTERED, ROLE-SPECIFIC CIS CONTROLLER. Every model or model-driven agent participating in CIS, regardless of provider, lineage, host or container location, or assigned role—including Brain/Codex, Menter/Claude, DeepSeek, Kimi, Qwen, and future models—must execute only through a registered CIS-owned role-specific controller. Raw model, CLI, harness, or provider invocation is not a valid normal pipeline route. Each controller must bind the logical role; exact model, provider, harness, and execution identity; authorized task contract; filesystem, network, tool, credential, time, token, and cost boundaries; mandatory structured input and output; durable session, attempt, checkpoint, and failure facts; fail-closed classification of empty or missing reports, timeouts, permission waits, provider failures, malformed artifacts, and budget exhaustion; and evidence to the exact authorization, candidate, and route. No model may verify, review, authorize, admit evidence, mutate the queue, expand permissions, promote, or accept its own work unless a separately authorized role-specific controller owns that operation and independence constraints are satisfied. The Brain controller reads authority, continuity, dependencies, and evidence and produces recommendations, cards, and reconciliation; it must not edit implementation source, act as developer or deterministic verifier, admit evidence, mutate authority without an authorized interface, or promote. The Menter controller permits only authorized candidate changes in a bounded workspace and developer tests, then returns a candidate and structured report; it cannot perform acceptance or promotion. The Reviewer controller is read-only over the exact candidate and evidence, must satisfy independent-lineage policy, and cannot edit, accept, or promote. The deterministic Verifier is trusted CIS software rather than a model and operates behind its own narrow execution boundary to run required acceptance checks independently. CIS authority alone records acceptance and controls promotion. Transitional raw Claude, Hermes, and OpenRouter invocations are not acceptable normal routes; until a controller is registered and verified, that route is unavailable. Separately authorized break-glass recovery must be recorded as recovery and cannot be represented as ordinary governed execution. Immediate build consequence: complete and register the common CodingAgentController boundary, ClaudeProcessController, HermesProcessController and provider-neutral controllers; bind supervisor routing and budgets, deterministic verifier handoff, independent reviewer receipts, promotion gates, durable continuity, and Workbench observability; and ensure the cis-clean container image reproduces these controls. Existing revision 42 Qwen-enforcement contradiction remains open until actual reviewer-route execution is deterministically proven.",
+    "evidence_refs": ["tests.test_claude_process:8:PASS", "openrouter:qwen:gen-1792541011-7oqXWT8JOYPgnEWbDnvE:PASS", "openrouter:qwen:gen-1792540130-dwZTPWxMzMpoI7yTcGXl:PASS"],
+    "source_refs": ["owner_instruction:2026-10-20:all-agents-require-controller", "/mnt/projects/cis-clean/src/cis/execution/adapters/claude_process.py", "/mnt/projects/cis-clean/tests/test_claude_process.py", "dev_continuity_events:4.37:42"],
+    "against_revision": null,
+    "request_id": "codex-20261020-registered-role-controller-invariant-v1",
+    "request_hash": "5183a80af07a1f500528b5b618e29fa64072062141327be030765407394d0cd6",
+    "created_at": "2026-10-21 00:10:19"
+  }
+]
