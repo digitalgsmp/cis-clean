@@ -240,6 +240,10 @@ class ExecutionPort(ABC):
     #: A backend may require the gateway to bind an already-verified frozen
     #: task contract into the token-covered request payload.
     requires_frozen_task_contract: bool = False
+    #: A candidate-authoring backend may require a deterministic Card Factory
+    #: projection of that contract. The gateway resolves and verifies it;
+    #: callers never submit prompt text or card fields.
+    requires_task_card: bool = False
     #: A backend may require the gateway to verify a compiled MASTER/TASK
     #: policy envelope — bound to this exact authorization, recomputing its
     #: own digest and current against the live catalog — before adapter

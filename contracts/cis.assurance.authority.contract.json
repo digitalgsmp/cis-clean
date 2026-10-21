@@ -1,6 +1,6 @@
 {
   "module_id": "cis.assurance.authority",
-  "responsibility": "Owns the six append-only assurance tables and exposes them only through disjoint task-contract, verifier, reviewer and promotion facades plus one read-only derived ledger.",
+  "responsibility": "Owns the seven append-only assurance tables and exposes them only through disjoint task-contract, verifier, reviewer and promotion facades plus one read-only derived ledger.",
   "layer": "L2",
   "owned_authority": [
     "task_contracts",
@@ -8,7 +8,8 @@
     "verification_results",
     "review_results",
     "objection_cycles",
-    "promotion_decisions"
+    "promotion_decisions",
+    "review_route_receipts"
   ],
   "reads": [
     "task_contracts",
@@ -16,7 +17,8 @@
     "verification_results",
     "review_results",
     "objection_cycles",
-    "promotion_decisions"
+    "promotion_decisions",
+    "review_route_receipts"
   ],
   "writes": [
     "task_contracts",
@@ -24,9 +26,10 @@
     "verification_results",
     "review_results",
     "objection_cycles",
-    "promotion_decisions"
+    "promotion_decisions",
+    "review_route_receipts"
   ],
-  "mutation_interface": "TaskContractFacade.freeze, VerifierFacade.record_inputs and record_result, ReviewerFacade.record_review and open_objection_cycle, and PromotionFacade.record_decision, each appending through AuthorityStore.insert",
+  "mutation_interface": "TaskContractFacade.freeze, VerifierFacade.record_inputs and record_result, ReviewerFacade.record_review, open_objection_cycle and record_route_receipt, and PromotionFacade.record_decision, each appending through AuthorityStore.insert. record_route_receipt is the sole sanctioned path into review_route_receipts: it runs cis.assurance.review_route.verify_receipt first, then independently checks the receipt against the cited review_results row (task contract, verification result, packet hash, reviewer lineage, outcome and parsed objections), the cited verification_results row (the same row the review rests on, bound to the same task contract), the worker-model request lifecycle cis.execution.worker_session owns (a worker_model_requests row for reviewer_request_id agreeing on adapter and response schema; its worker_sessions row existing with logical_role REVIEWER and the same adapter; exactly one terminal worker_session_events row for that request, REQUEST_SUCCEEDED, citing both the receipt's response_evidence_id and a nonblank run_id; and a backend_runs row for that run_id that is completed and whose authorization_id, adapter_id and evidence_id exactly match the request, the receipt's adapter and the receipt's evidence), and the cited evidence_records row (kind external_model_review_response, source_ref openrouter:generation:<reviewer_request_id>, a content digest that recomputes and equals response_sha256, and parsed closed {verdict, objections} content equal to the receipt) before appending. This binds the receipt to the gateway/adapter execution that was actually dispatched and supervised; it is trusted gateway/adapter execution binding, not cryptographic provider attestation.",
   "depends_on": [
     "cis.authority.store",
     "cis.authority.trajectory",
@@ -43,15 +46,16 @@
   ],
   "trust_domain": "cis_clean_control_host",
   "execution_location": "in-process, cis-clean application process; it reaches no host and imports nothing that could",
-  "failure_boundary": "fail_closed — a second task contract under one authorization, a second verifier input or verification result for one task contract, a verification over a contract that has already moved past FROZEN, a review with no verification, an out-of-sequence cycle index, a fourth objection cycle, a cycle opened by a review that did not object, and a PROMOTION_AUTHORIZED without both a recorded VERIFIED_PASS and a recorded review PASS are each refused before the append",
+  "failure_boundary": "fail_closed — a second task contract under one authorization, a second verifier input or verification result for one task contract, a verification over a contract that has already moved past FROZEN, a review with no verification, an out-of-sequence cycle index, a fourth objection cycle, a cycle opened by a review that did not object, a PROMOTION_AUTHORIZED without both a recorded VERIFIED_PASS and a recorded review PASS, and a reviewer-route receipt refused before the append unless it already passes cis.assurance.review_route.verify_receipt, cites an existing review and verification result that exactly agree with it, cites a reviewer_request_id with an existing worker_model_requests row agreeing on adapter and response schema whose worker_sessions row is a REVIEWER session on the same adapter, has exactly one terminal worker_session_events row that is REQUEST_SUCCEEDED citing the receipt's response evidence and a nonblank run_id bound to a completed backend_runs row matching the request's authorization and adapter and the receipt's evidence, cites existing response evidence of exactly the right kind, source_ref, content digest and parsed {verdict, objections} content, and is the only receipt for that review, are each refused before the append; review_route_receipts additionally refuses at the SQL layer any row with a blank identifier, a digest column that is not exactly 64 characters, a provider_id/model_id/reviewer_lineage/hash_domain outside the single fixed value the reviewer policy admits, implementer/reviewer identifiers and lineages that coincide, or a second row for one review",
   "recovery_behavior": "Every table is append-only by trigger and every row is written in one statement, so an interruption leaves a shorter ledger rather than a half-written fact, and the derived state simply reads one step earlier",
-  "replacement_contract": "A replacement must keep single ownership of all six tables, keep the three write facades' public method names pairwise disjoint, derive assurance state from the rows rather than storing it, enforce the three-objection-cycle bound at the ledger as well as in SQL, refuse PROMOTION_AUTHORIZED unless both halves of the conjunction stand recorded, and record no host action",
+  "replacement_contract": "A replacement must keep single ownership of all seven tables, keep the three write facades' public method names pairwise disjoint, derive assurance state from the rows rather than storing it, enforce the three-objection-cycle bound at the ledger as well as in SQL, refuse PROMOTION_AUTHORIZED unless both halves of the conjunction stand recorded, admit a reviewer-route receipt only after independently re-checking it against the review, verification result, worker-model request lifecycle (request, REVIEWER session, terminal REQUEST_SUCCEEDED event and completed backend run) and response evidence it cites rather than trusting the receipt's own caller-admitted claims alone, and record no host action",
   "evidence_produced": [
     "one immutable task_contracts row per frozen task contract, linked forward to its execution authorization",
     "one immutable verification_inputs row and one verification_results row per verified task contract",
     "up to three review_results rows and up to three objection_cycles rows per task contract, each carrying a recomputable digest",
     "one promotion_decisions row per decided task contract, with host_action recorded as NONE_RECORD_ONLY",
-    "one micro trajectory event per assurance append, so each step is visible without reading the assurance tables"
+    "one micro trajectory event per assurance append, so each step is visible without reading the assurance tables",
+    "one immutable review_route_receipts row per review that was independently re-checked against its cited review, verification result and response evidence at admission time"
   ],
   "verification": "python3 -m unittest tests.test_assurance -v"
 }

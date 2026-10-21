@@ -1,8 +1,9 @@
 """The single owner of the assurance ledger, behind three disjoint facades.
 
-Six append-only tables, one owning module (ADR-ARCH-001 clause 5):
+Seven append-only tables, one owning module (ADR-ARCH-001 clause 5):
 ``task_contracts``, ``verification_inputs``, ``verification_results``,
-``review_results``, ``objection_cycles`` and ``promotion_decisions``.
+``review_results``, ``objection_cycles``, ``promotion_decisions`` and
+``review_route_receipts``.
 
 ONE OWNER, THREE FACADES
 ------------------------
@@ -16,9 +17,9 @@ SEPARATION IS ENFORCED AT THE FACADE, not at the table:
 
   * ``AssuranceAuthority.verifier``  — appends verification inputs and the one
     verification result. It cannot append a review, a cycle or a promotion.
-  * ``AssuranceAuthority.reviewer``  — appends review results and objection
-    cycles. It cannot append a verification input, a verification result or a
-    promotion.
+  * ``AssuranceAuthority.reviewer``  — appends review results, objection
+    cycles, and reviewer-route receipts. It cannot append a verification
+    input, a verification result or a promotion.
   * ``AssuranceAuthority.promotion`` — appends promotion decisions. It cannot
     append anything else.
 
@@ -27,6 +28,39 @@ The three facades expose pairwise-disjoint public method names, and
 ``AssuranceAuthority.ledger`` is a fourth facade that is READ-ONLY and shared:
 derived state is a read, and three private copies of one derivation would be
 the duplicate-state failure reconstruction exists to remove.
+
+SANCTIONED REVIEWER-ROUTE RECEIPT ADMISSION
+--------------------------------------------
+
+``ReviewerFacade.record_route_receipt`` is the only sanctioned behavioral path
+into ``review_route_receipts`` (Unit 9A2b). It runs
+``cis.assurance.review_route.verify_receipt`` first — the pure, offline
+closed-schema and policy check — and only then checks the receipt against
+authority itself: the cited review must exist and the receipt must exactly
+match that review's task contract, verification result, packet hash, reviewer
+lineage, outcome and objections; the cited verification result must be the
+exact row the review itself rests on; and ``response_evidence_id`` must name
+an existing ``evidence_records`` row whose kind, source_ref, content digest and
+parsed ``{verdict, objections}`` content exactly match the receipt. The
+evidence is an observation that a response was received, never authority by
+itself (ADR-ARCH-002) — the validated receipt, checked against the ledger, is
+what becomes authority. ``review_id`` is UNIQUE in migration 0015, so a second
+receipt for one review is refused at the SQL layer as well.
+
+A receipt is additionally bound to the worker-model request lifecycle that
+``cis.execution.worker_session`` owns (migration 0013), so a caller cannot get
+a receipt admitted on evidence it merely asserts: ``reviewer_request_id`` must
+name an existing ``worker_model_requests`` row whose adapter and response
+schema agree with the receipt; that row's ``worker_sessions`` row must exist,
+carry ``logical_role = 'REVIEWER'`` and the same adapter; the request must
+have exactly one terminal ``worker_session_events`` row, and it must be
+``REQUEST_SUCCEEDED`` citing both the receipt's ``response_evidence_id`` and a
+nonblank ``run_id``; and that ``run_id`` must name a ``backend_runs`` row that
+is ``completed`` and whose authorization, adapter and evidence exactly match
+the request, the receipt's adapter and the receipt's evidence. This binds the
+receipt to the gateway/adapter execution that was actually dispatched and
+supervised — it is not a cryptographic attestation from the model provider,
+only the trusted boundary this increment owns.
 
 STATE IS DERIVED
 ----------------
@@ -66,19 +100,26 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping, Sequence
 
+from ..authority.runs import COMPLETED as RUN_COMPLETED
 from ..authority.store import AuthorityStore, Row
 from ..authority.trajectory import (
     INDEPENDENT_REVIEW, INDEPENDENT_VERIFICATION, MICRO, PROMOTION_DECISION,
     TASK_CONTRACT, TrajectoryAuthority,
 )
-from ..canonical import sha256_hex
+from ..canonical import canonical_json, sha256_hex, sha256_text
 from ..errors import (
     AssuranceRefused, ObjectionCyclesExhausted, PromotionRefused,
     ReviewRefused, VerificationRefused,
 )
+from . import review_route
 from .task_contract import (
     FrozenTaskContract, STATE_FROZEN, TASK_CONTRACT_HASH_DOMAIN, verify_row,
 )
+
+#: The evidence kind an admitted external-reviewer response is recorded
+#: under. Fixed to a single value so ``record_route_receipt`` can refuse any
+#: other kind of evidence as a binding candidate.
+EXTERNAL_MODEL_REVIEW_RESPONSE_KIND = "external_model_review_response"
 
 # -- state vocabulary --------------------------------------------------------
 
@@ -250,6 +291,21 @@ class AssuranceLedger:
     def latest_promotion(self, task_contract_id: str) -> Row | None:
         rows = self.promotion_decisions(task_contract_id)
         return rows[-1] if rows else None
+
+    # -- reviewer-route receipts ---------------------------------------------
+
+    def route_receipt_for_review(self, review_id: str) -> Row | None:
+        return self._store.one(
+            "SELECT * FROM review_route_receipts WHERE review_id = ?",
+            (review_id,),
+        )
+
+    def route_receipts_for_task(self, task_contract_id: str) -> list[Row]:
+        return self._store.query(
+            "SELECT * FROM review_route_receipts WHERE task_contract_id = ? "
+            "ORDER BY seq",
+            (task_contract_id,),
+        )
 
     # -- derived state ------------------------------------------------------
 
@@ -676,6 +732,259 @@ class ReviewerFacade(_Facade):
         )
         return row
 
+    def record_route_receipt(self, receipt: Mapping[str, Any]) -> Row:
+        """Append one reviewer-route receipt, or refuse before the append.
+
+        The only sanctioned behavioral path into ``review_route_receipts``.
+        ``cis.assurance.review_route.verify_receipt`` runs first — the pure,
+        offline closed-schema and reviewer-policy check — and only a receipt
+        that already passes it is checked against the ledger: the cited
+        review must exist and the receipt must restate that review's own
+        facts exactly, the cited verification result must be the exact row
+        the review rests on, and the cited response evidence must be the
+        exact observation the receipt claims it is.
+        """
+        review_route.verify_receipt(receipt)
+
+        review = self._store.one(
+            "SELECT * FROM review_results WHERE review_id = ?",
+            (receipt["review_id"],),
+        )
+        if review is None:
+            raise ReviewRefused(
+                "route receipt cites an unknown review",
+                review_id=receipt["review_id"],
+            )
+
+        receipt_objections = [dict(o) for o in receipt["objections"]]
+        parsed_objections = json.loads(str(review["objections_json"]))
+        disagreements = [
+            name for name, mismatched in (
+                ("task_contract_id", str(review["task_contract_id"])
+                 != str(receipt["task_contract_id"])),
+                ("verification_result_id",
+                 str(review["verification_result_id"])
+                 != str(receipt["verification_result_id"])),
+                ("review_packet_hash", str(review["packet_hash"])
+                 != str(receipt["review_packet_hash"])),
+                ("reviewer_lineage", str(review["reviewer_lineage"])
+                 != str(receipt["reviewer_lineage"])),
+                ("verdict", str(review["outcome"]) != str(receipt["verdict"])),
+                ("objections", parsed_objections != receipt_objections),
+            ) if mismatched
+        ]
+        if disagreements:
+            raise ReviewRefused(
+                "route receipt does not exactly match the review it cites",
+                review_id=receipt["review_id"], disagreements=disagreements,
+            )
+
+        verification = self._store.one(
+            "SELECT * FROM verification_results WHERE result_id = ?",
+            (receipt["verification_result_id"],),
+        )
+        if verification is None:
+            raise ReviewRefused(
+                "route receipt cites an unknown verification result",
+                verification_result_id=receipt["verification_result_id"],
+            )
+        if (str(verification["task_contract_id"])
+                != str(receipt["task_contract_id"])):
+            raise ReviewRefused(
+                "the cited verification result does not belong to the "
+                "cited task contract",
+                verification_result_id=receipt["verification_result_id"],
+                task_contract_id=receipt["task_contract_id"],
+            )
+
+        evidence = self._store.one(
+            "SELECT * FROM evidence_records WHERE evidence_id = ?",
+            (receipt["response_evidence_id"],),
+        )
+        if evidence is None:
+            raise ReviewRefused(
+                "route receipt cites no recorded response evidence",
+                response_evidence_id=receipt["response_evidence_id"],
+            )
+        if str(evidence["kind"]) != EXTERNAL_MODEL_REVIEW_RESPONSE_KIND:
+            raise ReviewRefused(
+                "response evidence has the wrong kind",
+                expected=EXTERNAL_MODEL_REVIEW_RESPONSE_KIND,
+                got=str(evidence["kind"]),
+            )
+        expected_source_ref = (
+            f"openrouter:generation:{receipt['reviewer_request_id']}")
+        if str(evidence["source_ref"]) != expected_source_ref:
+            raise ReviewRefused(
+                "response evidence source_ref does not name this reviewer "
+                "request",
+                expected=expected_source_ref, got=str(evidence["source_ref"]),
+            )
+        recomputed_content_hash = sha256_text(str(evidence["content"]))
+        if recomputed_content_hash != str(evidence["content_hash"]):
+            raise ReviewRefused(
+                "response evidence does not recompute its own content digest",
+                response_evidence_id=receipt["response_evidence_id"],
+            )
+        if recomputed_content_hash != str(receipt["response_sha256"]):
+            raise ReviewRefused(
+                "response evidence content does not match response_sha256",
+                expected=receipt["response_sha256"],
+                got=recomputed_content_hash,
+            )
+        try:
+            parsed_response = json.loads(str(evidence["content"]))
+        except ValueError as exc:
+            raise ReviewRefused(
+                "response evidence content is not valid JSON",
+                response_evidence_id=receipt["response_evidence_id"],
+            ) from exc
+        if (not isinstance(parsed_response, dict)
+                or set(parsed_response) != {"verdict", "objections"}):
+            raise ReviewRefused(
+                "response evidence content is not the closed "
+                "{verdict, objections} shape",
+                response_evidence_id=receipt["response_evidence_id"],
+            )
+        if parsed_response["verdict"] != receipt["verdict"]:
+            raise ReviewRefused(
+                "response evidence verdict does not match the receipt",
+                expected=receipt["verdict"], got=parsed_response["verdict"],
+            )
+        if parsed_response["objections"] != receipt_objections:
+            raise ReviewRefused(
+                "response evidence objections do not match the receipt",
+                expected=receipt_objections,
+                got=parsed_response["objections"],
+            )
+
+        request = self._store.one(
+            "SELECT * FROM worker_model_requests WHERE request_id = ?",
+            (receipt["reviewer_request_id"],),
+        )
+        if request is None:
+            raise ReviewRefused(
+                "route receipt cites a reviewer request that was never "
+                "issued through the worker session authority",
+                reviewer_request_id=receipt["reviewer_request_id"],
+            )
+        if (str(request["adapter_id"]) != str(receipt["reviewer_adapter_id"])
+                or str(request["response_schema_sha256"])
+                != str(receipt["response_schema_sha256"])):
+            raise ReviewRefused(
+                "the reviewer request does not match the receipt's adapter "
+                "or response schema",
+                reviewer_request_id=receipt["reviewer_request_id"],
+            )
+
+        session = self._store.one(
+            "SELECT * FROM worker_sessions WHERE session_id = ?",
+            (request["session_id"],),
+        )
+        if session is None:
+            raise ReviewRefused(
+                "the reviewer request's worker session does not exist",
+                session_id=request["session_id"],
+            )
+        if (str(session["logical_role"]) != "REVIEWER"
+                or str(session["adapter_id"])
+                != str(receipt["reviewer_adapter_id"])):
+            raise ReviewRefused(
+                "the reviewer request's worker session is not a REVIEWER "
+                "session on the receipt's adapter",
+                session_id=request["session_id"],
+                logical_role=str(session["logical_role"]),
+            )
+
+        request_events = self._store.query(
+            "SELECT * FROM worker_session_events WHERE request_id = ? "
+            "ORDER BY seq",
+            (receipt["reviewer_request_id"],),
+        )
+        terminal_events = [
+            e for e in request_events
+            if str(e["event_type"]) in ("REQUEST_SUCCEEDED", "REQUEST_FAILED")
+        ]
+        if (len(terminal_events) != 1
+                or str(terminal_events[0]["event_type"]) != "REQUEST_SUCCEEDED"):
+            raise ReviewRefused(
+                "the reviewer request does not have exactly one terminal "
+                "REQUEST_SUCCEEDED event",
+                reviewer_request_id=receipt["reviewer_request_id"],
+                terminal_event_count=len(terminal_events),
+            )
+        success_event = terminal_events[0]
+        run_id = success_event["run_id"]
+        if (str(success_event["evidence_id"])
+                != str(receipt["response_evidence_id"])
+                or run_id is None or not str(run_id).strip()):
+            raise ReviewRefused(
+                "the reviewer request's REQUEST_SUCCEEDED event does not "
+                "cite this receipt's response evidence and a run",
+                reviewer_request_id=receipt["reviewer_request_id"],
+            )
+
+        backend_run = self._store.one(
+            "SELECT * FROM backend_runs WHERE run_id = ?", (run_id,),
+        )
+        if (backend_run is None
+                or str(backend_run["status"]) != RUN_COMPLETED
+                or str(backend_run["authorization_id"])
+                != str(request["authorization_id"])
+                or str(backend_run["adapter_id"])
+                != str(receipt["reviewer_adapter_id"])
+                or str(backend_run["evidence_id"])
+                != str(receipt["response_evidence_id"])):
+            raise ReviewRefused(
+                "the backend run bound to the reviewer request's success "
+                "event does not exist, is not completed, or does not match "
+                "the request's authorization and adapter or the receipt's "
+                "evidence",
+                run_id=run_id,
+            )
+
+        row = self._store.insert("review_route_receipts", {
+            "receipt_id": receipt["receipt_id"],
+            "task_contract_id": receipt["task_contract_id"],
+            "verification_result_id": receipt["verification_result_id"],
+            "review_id": receipt["review_id"],
+            "review_packet_hash": receipt["review_packet_hash"],
+            "implementer_request_id": receipt["implementer_request_id"],
+            "implementer_adapter_id": receipt["implementer_adapter_id"],
+            "reviewer_request_id": receipt["reviewer_request_id"],
+            "reviewer_adapter_id": receipt["reviewer_adapter_id"],
+            "provider_id": receipt["provider_id"],
+            "model_id": receipt["model_id"],
+            "implementer_lineage": receipt["implementer_lineage"],
+            "reviewer_lineage": receipt["reviewer_lineage"],
+            "response_schema_sha256": receipt["response_schema_sha256"],
+            "response_evidence_id": receipt["response_evidence_id"],
+            "response_sha256": receipt["response_sha256"],
+            "verdict": receipt["verdict"],
+            "objections_json": canonical_json(receipt_objections),
+            "hash_domain": receipt["hash_domain"],
+            "receipt_hash": receipt["receipt_hash"],
+            "created_at": self._store.now(),
+            "seq": self._store.next_seq(),
+        })
+        contract = self._ledger.require_task_contract(
+            str(receipt["task_contract_id"]))
+        self._event(
+            INDEPENDENT_REVIEW, "route_receipt_recorded",
+            task_contract_id=str(receipt["task_contract_id"]),
+            module_id=str(contract["target_module_id"]),
+            detail={
+                "receipt_id": receipt["receipt_id"],
+                "review_id": receipt["review_id"],
+                "reviewer_request_id": receipt["reviewer_request_id"],
+                "provider_id": receipt["provider_id"],
+                "model_id": receipt["model_id"],
+                "receipt_hash": receipt["receipt_hash"],
+                "verdict": receipt["verdict"],
+            },
+        )
+        return row
+
 
 class PromotionFacade(_Facade):
     """Appends promotion decisions, and performs no host action of any kind."""
@@ -843,11 +1152,12 @@ def review_result_hash_of_row(row: Mapping[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 class AssuranceAuthority:
-    """Owner of the six assurance tables; reached only through its facades."""
+    """Owner of the seven assurance tables; reached only through its facades."""
 
     owned_authority = (
         "task_contracts", "verification_inputs", "verification_results",
         "review_results", "objection_cycles", "promotion_decisions",
+        "review_route_receipts",
     )
 
     def __init__(self, store: AuthorityStore,

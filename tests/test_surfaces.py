@@ -33,7 +33,7 @@ README = (ROOT / "README.md").read_text(encoding="utf-8")
 FLAT_README = " ".join(README.replace("*", "").replace("`", "").split())
 
 #: Every test in the suite, counted the way an operator counts them.
-TOTAL_TESTS = 543
+TOTAL_TESTS = 554
 
 
 class ReadmeTests(unittest.TestCase):

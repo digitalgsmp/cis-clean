@@ -920,6 +920,18 @@
     "owner instruction - governed external-development continuity requires a session boundary distinct from the supervisor's own route authority",
     "ADR-ARCH-004 clause 5 - worker self-report cannot substitute for independent assurance"
    ]
+  },
+  {
+   "module_id": "cis.card_factory.projection",
+   "contract": "contracts/cis.card_factory.projection.contract.json",
+   "reconstruction_status": "RECONSTRUCTED_IN_UNIT_CF1",
+   "capability": "Provider-neutral, read-only deterministic card and Markdown projection of one frozen task contract, built only from a task_contract_id after independently re-verifying its digest, its governing ALLOW authorization against the current baseline and active objective, and its intent transaction and objective",
+   "evidence_basis": [
+    "ADR-ARCH-002 - record once, derive everywhere",
+    "ADR-ARCH-004 clauses 4 and 8 - cards as projections, generated from authority and never read back into it",
+    "queue 4.18",
+    "dev_continuity_events:4.37:41"
+   ]
   }
  ],
  "deferred_modules": [

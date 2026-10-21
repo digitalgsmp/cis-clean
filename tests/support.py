@@ -11,7 +11,7 @@ from typing import Any
 
 from cis.authority import MIGRATIONS_DIR, AuthorityStore
 from cis.blueprint import load_blueprint
-from cis.canonical import canonical_json
+from cis.canonical import canonical_json, sha256_hex
 from cis.conductor import Conductor
 from cis.workbench import Workbench
 
@@ -342,7 +342,8 @@ def exercised_workbench():
     # its header, issued model request and lifecycle fact remain separately
     # addressable even though this fixture anchors all three to the route
     # immediately above.
-    wb.store.insert("worker_sessions", {
+    from cis.execution.worker_session import session_payload
+    wks_seed_row = {
         "session_id": "wks-seed", "supervision_id": supervision_id,
         "route_index": 0,
         "objective_id": objecting.authorization["objective_id"],
@@ -350,8 +351,11 @@ def exercised_workbench():
         "target_module_id": objecting.authorization["target_module_id"],
         "operation": objecting.authorization["scope"]["operation"],
         "logical_role": "IMPLEMENTER", "adapter_id": "deterministic_mock",
+    }
+    wb.store.insert("worker_sessions", {
+        **wks_seed_row,
         "hash_domain": "cis.execution.worker_session.header.v1",
-        "session_hash": "1" * 64,
+        "session_hash": sha256_hex(session_payload(wks_seed_row)),
         "created_at": wb.store.now(), "seq": wb.store.next_seq(),
     })
     wb.store.insert("worker_model_requests", {
@@ -377,6 +381,191 @@ def exercised_workbench():
         "event_hash": "6" * 64,
         "created_at": wb.store.now(), "seq": wb.store.next_seq(),
     })
+
+    # Seed migration 0014's durable, provider-neutral logical session and its
+    # one attached route-bound leg, through the sanctioned
+    # WorkerSessionAuthority API rather than raw inserts, so the generic
+    # append-only proof cannot pass against an empty table. ``open_session``
+    # itself isn't practical here: it demands an independently re-verifiable
+    # supervision plan, and this fixture's "wsp-seed" plan above is seeded
+    # with a placeholder hash for the generic trigger proof, not a real one.
+    # So the route-bound leg reuses the "wks-seed" row (now given its real,
+    # recomputed session_hash above) and only the logical session and its
+    # attachment go through the sanctioned API.
+    from cis.execution.worker_session import WorkerSessionAuthority
+    worker_sessions = WorkerSessionAuthority(wb.store)
+    logical_session = worker_sessions.open_logical_session(
+        objective_id=objecting.authorization["objective_id"],
+        transaction_id=objecting.authorization["transaction_id"],
+        target_module_id=objecting.authorization["target_module_id"],
+        operation=objecting.authorization["scope"]["operation"],
+        logical_role="IMPLEMENTER")
+    worker_sessions.attach_route_session(
+        logical_session_id=str(logical_session["logical_session_id"]),
+        session_id="wks-seed", leg_ordinal=1)
+
+    # Seed Unit-9A's review-route receipt authority with a third independent
+    # ALLOW task: ingest, execute, assure, then record a PASS review through
+    # the sanctioned authority.reviewer.record_route_receipt path. This seeding
+    # exercises the generic append-only proof for review_route_receipts while
+    # keeping the passing and objecting tasks unaltered.
+    third_outcome = conduct.ingest_instruction(ALLOW_INSTRUCTION)
+    assert third_outcome.authorization["verdict"] == "ALLOW", third_outcome.authorization
+    third_run = conduct.execute_authorization(
+        third_outcome.authorization["authorization_id"])
+    third_compiled = freeze_task_contract(
+        wb, third_outcome.authorization["authorization_id"])
+    third_task_contract_id = third_compiled.task_contract_id
+    verifier(wb).verify(third_task_contract_id)
+
+    from cis.assurance.reviewer import ReviewerInputPort, assess, REASON_REVIEW_PASS
+    from cis.assurance import review_route
+    from cis.assurance.authority import REVIEW_PASS
+
+    input_port = ReviewerInputPort(
+        store=wb.store, blueprint=wb.blueprint,
+        authority=assurance_authority(wb))
+    packet = input_port.assemble(third_task_contract_id, cycle_index=0)
+    artifacts = input_port.submitted_artifacts(packet)
+    judgement = assess(packet, artifacts)
+
+    review = assurance_authority(wb).reviewer.record_review(
+        review_id=packet.review_id,
+        task_contract_id=third_task_contract_id,
+        verification_result_id=str(packet.verification["result_id"]),
+        cycle_index=0,
+        outcome=REVIEW_PASS,
+        reason_code=REASON_REVIEW_PASS,
+        reviewer_lineage=review_route.REVIEWER_LINEAGE,
+        packet_hash=packet.packet_hash,
+        recomputed_task_contract_hash=packet.recomputed_task_contract_hash,
+        recomputed_verification_result_hash=(
+            packet.recomputed_verification_result_hash),
+        objections=[],
+    )
+
+    response_content = canonical_json({"verdict": "PASS", "objections": []})
+    response_evidence_id = "evi-rreq-seed-response"
+    response_evidence = wb.evidence.admit(
+        evidence_id=response_evidence_id,
+        kind="external_model_review_response",
+        source_ref="openrouter:generation:rreq-seed",
+        content=response_content,
+        admission_basis="seeded:review_route:rreq-seed",
+    )
+    response_sha256 = str(response_evidence["content_hash"])
+
+    receipt = review_route.receipt_payload(
+        receipt_id="rr-seed",
+        task_contract_id=third_task_contract_id,
+        verification_result_id=str(packet.verification["result_id"]),
+        review_id=str(packet.review_id),
+        review_packet_hash=packet.packet_hash,
+        implementer_request_id="rreq-impl-seed",
+        implementer_adapter_id="deterministic_mock",
+        reviewer_request_id="rreq-seed",
+        reviewer_adapter_id="openrouter_qwen_reviewer",
+        provider_id="openrouter",
+        model_id="qwen/qwen3.7-max",
+        implementer_lineage="cis.conductor/deterministic_mock_v1",
+        reviewer_lineage=review_route.REVIEWER_LINEAGE,
+        response_schema_sha256=review_route.RESPONSE_SCHEMA_SHA256,
+        response_evidence_id=response_evidence_id,
+        response_sha256=response_sha256,
+        verdict="PASS",
+        objections=[],
+    )
+    receipt_with_hash = dict(receipt)
+    receipt_with_hash["receipt_hash"] = review_route.receipt_hash(receipt)
+
+    # Seed Unit-8A's worker lifecycle for the reviewer request (rreq-seed).
+    # The reviewer request needs a complete, internally valid lifecycle before
+    # record_route_receipt can bind it: a supervision plan, session, model request,
+    # backend run, and REQUEST_SUCCEEDED event all bound together.
+    from cis.execution.worker_session import session_payload, request_payload, event_payload
+
+    reviewer_supervision_id = "wsp-rreq-seed"
+    wb.store.insert("worker_supervision_plans", {
+        "supervision_id": reviewer_supervision_id,
+        "objective_id": third_outcome.authorization["objective_id"],
+        "transaction_id": third_outcome.authorization["transaction_id"],
+        "target_module_id": third_outcome.authorization["target_module_id"],
+        "operation": third_outcome.authorization["scope"]["operation"],
+        "routes_json": canonical_json([{
+            "authorization_id": third_outcome.authorization["authorization_id"],
+            "adapter_id": "openrouter_qwen_reviewer", "wall_time_ms": 30000,
+            "token_limit": 4000, "cost_limit_micros": 500000,
+        }]),
+        "route_count": 1, "circuit_threshold": 1,
+        "hash_domain": "cis.execution.worker_supervision.plan.v1",
+        "plan_hash": "7" * 64,
+        "created_at": wb.store.now(), "seq": wb.store.next_seq(),
+    })
+
+    reviewer_session_id = "wks-rreq-seed"
+    wks_reviewer_row = {
+        "session_id": reviewer_session_id, "supervision_id": reviewer_supervision_id,
+        "route_index": 0,
+        "objective_id": third_outcome.authorization["objective_id"],
+        "transaction_id": third_outcome.authorization["transaction_id"],
+        "target_module_id": third_outcome.authorization["target_module_id"],
+        "operation": third_outcome.authorization["scope"]["operation"],
+        "logical_role": "REVIEWER", "adapter_id": "openrouter_qwen_reviewer",
+    }
+    wb.store.insert("worker_sessions", {
+        **wks_reviewer_row,
+        "hash_domain": "cis.execution.worker_session.header.v1",
+        "session_hash": sha256_hex(session_payload(wks_reviewer_row)),
+        "created_at": wb.store.now(), "seq": wb.store.next_seq(),
+    })
+
+    wmr_reviewer_row = {
+        "request_id": "rreq-seed", "session_id": reviewer_session_id,
+        "supervision_id": reviewer_supervision_id, "route_index": 0,
+        "authorization_id": third_outcome.authorization["authorization_id"],
+        "adapter_id": "openrouter_qwen_reviewer",
+        "wall_time_ms": 30000, "token_limit": 4000,
+        "cost_limit_micros": 500000,
+        "prompt_sha256": "8" * 64, "context_sha256": "9" * 64,
+        "response_schema_sha256": review_route.RESPONSE_SCHEMA_SHA256, "ordinal": 1,
+    }
+    wb.store.insert("worker_model_requests", {
+        **wmr_reviewer_row,
+        "hash_domain": "cis.execution.worker_session.request.v1",
+        "request_hash": sha256_hex(request_payload(wmr_reviewer_row)),
+        "created_at": wb.store.now(), "seq": wb.store.next_seq(),
+    })
+
+    backend_run_id = "backend-run-rreq-seed"
+    wb.store.insert("backend_runs", {
+        "run_id": backend_run_id,
+        "authorization_id": third_outcome.authorization["authorization_id"],
+        "adapter_id": "openrouter_qwen_reviewer",
+        "request_hash": "a" * 64,
+        "status": "completed",
+        "exit_code": 0,
+        "result_hash": response_sha256,
+        "evidence_id": response_evidence_id,
+        "started_at": wb.store.now(),
+        "finished_at": wb.store.now(),
+        "seq": wb.store.next_seq(),
+    })
+
+    wkse_reviewer_row = {
+        "event_id": "wkse-rreq-seed-succeeded", "session_id": reviewer_session_id,
+        "request_id": "rreq-seed", "event_type": "REQUEST_SUCCEEDED",
+        "external_session_ref": None, "checkpoint_ref": None,
+        "checkpoint_sha256": None, "run_id": backend_run_id,
+        "evidence_id": response_evidence_id, "failure_class": None,
+    }
+    wb.store.insert("worker_session_events", {
+        **wkse_reviewer_row,
+        "hash_domain": "cis.execution.worker_session.event.v1",
+        "event_hash": sha256_hex(event_payload(wkse_reviewer_row)),
+        "created_at": wb.store.now(), "seq": wb.store.next_seq(),
+    })
+
+    assurance_authority(wb).reviewer.record_route_receipt(receipt_with_hash)
 
     # Recorded LAST, on purpose: a standing evidence conflict forces HOLD on
     # every later instruction, so seeding it earlier would stop the second

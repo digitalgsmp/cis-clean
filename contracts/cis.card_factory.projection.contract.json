@@ -1,0 +1,45 @@
+{
+  "module_id": "cis.card_factory.projection",
+  "responsibility": "Builds one deterministic, provider-neutral card and its Markdown rendering from a single frozen task contract after independently re-verifying its digest, its governing ALLOW authorization against the current baseline and active objective, and its intent transaction and objective.",
+  "layer": "L2",
+  "owned_authority": [],
+  "reads": [
+    "task_contracts",
+    "execution_authorizations",
+    "intent_transactions",
+    "objectives",
+    "continuity_decisions",
+    "blueprint/reconstruction_manifest.json"
+  ],
+  "writes": [],
+  "mutation_interface": "none — a card is generated from authority and is never read back into it",
+  "depends_on": [
+    "cis.authority.store",
+    "cis.authority.intent",
+    "cis.authority.continuity",
+    "cis.authority.authorization",
+    "cis.assurance.authority",
+    "cis.blueprint.manifest"
+  ],
+  "forbidden_dependencies": [
+    "cis.interface.api",
+    "cis.assurance.verifier",
+    "cis.assurance.reviewer",
+    "cis.assurance.promotion",
+    "cis.execution.gateway",
+    "cis.execution.adapters.deterministic_mock",
+    "cis.worker.contained_nonroot",
+    "cis.host.promotion_gate"
+  ],
+  "trust_domain": "cis_clean_control_host",
+  "execution_location": "in-process, cis-clean application process; no filesystem, network, model or host access of any kind",
+  "failure_boundary": "fail_closed — an unknown or tampered task contract, a binding that does not recompute, a verdict that is not ALLOW, a superseded objective, a moved baseline, and a task contract whose recorded authorization binding no longer matches the independently re-verified authorization each refuse before a card exists",
+  "recovery_behavior": "Stateless and fully regenerated from authority on every call, so a repeated build over unchanged authority returns a byte-identical card and card_hash and nothing is cached or left partial by an interruption",
+  "replacement_contract": "A replacement must accept only a task_contract_id, independently re-verify the task-contract digest, the governing ALLOW authorization against the current baseline and active objective, and the intent transaction and objective it resolves to, must derive every card field from that verified authority alone, must hash under its own domain distinct from every other CIS hash scheme, and must expose no write path and no caller-supplied scope or instruction",
+  "evidence_produced": [
+    "a card whose card_hash recomputes from its own fields under its own hash domain",
+    "a deterministic Markdown rendering of the same verified fields",
+    "TaskContractTampered, BindingError, StaleAuthorization, AuthorizationRefused or AssuranceRefused detail naming the refused binding"
+  ],
+  "verification": "python3 -m unittest tests.test_card_factory_projection -v"
+}

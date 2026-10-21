@@ -181,6 +181,10 @@ class AuthorityStore:
         # logical session and the route-bound legs explicitly attached to it
         # are separate append-only tables from the route-bound session itself.
         "worker_logical_sessions", "worker_session_legs",
+        # Unit 9A2a (migration 0015). Storage foundation only for the
+        # reviewer-route receipt validated in cis.assurance.review_route; one
+        # row per review.
+        "review_route_receipts",
     )
 
     def _max_seq(self) -> int:

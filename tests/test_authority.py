@@ -4,10 +4,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from cis.assurance import review_route
 from cis.authority import (
     AuthorityStore, ContinuityAuthority, EvidenceAuthority, IntentAuthority,
     MIGRATIONS_DIR,
 )
+from cis.canonical import canonical_json
 from cis.errors import AppendOnlyViolation, CisError
 
 from . import support
@@ -33,6 +35,8 @@ _EXPECTED_MIGRATIONS = [
     "0011_recovery_attempts",
     "0012_worker_supervision",
     "0013_worker_sessions",
+    "0014_worker_logical_sessions",
+    "0015_review_route_receipts",
 ]
 
 
@@ -111,6 +115,53 @@ class AppendOnlyTests(unittest.TestCase):
         self.evidence.admit(
             evidence_id="evi-1", kind="note", source_ref="ref",
             content="observed", admission_basis="test:trusted-import")
+        self._seed_review_route_receipt()
+
+    def _seed_review_route_receipt(self):
+        """Seed migration 0015's review_route_receipts for the generic
+        append-only proof. Unit 9A2a is storage foundation only: there is no
+        facade yet, so this inserts directly through the sanctioned
+        AuthorityStore.insert primitive, using cis.assurance.review_route to
+        build a referentially valid payload and its digest."""
+        passing_task_contract_id = str(self.store.one(
+            "SELECT task_contract_id FROM task_contracts "
+            "WHERE authorization_id = ?",
+            (self.outcome.authorization["authorization_id"],),
+        )["task_contract_id"])
+        verification_result = self.store.one(
+            "SELECT result_id FROM verification_results "
+            "WHERE task_contract_id = ?", (passing_task_contract_id,))
+        review_result = self.store.one(
+            "SELECT review_id FROM review_results "
+            "WHERE task_contract_id = ? AND outcome = 'PASS'",
+            (passing_task_contract_id,))
+        payload = review_route.receipt_payload(
+            receipt_id="rrr-seed",
+            task_contract_id=passing_task_contract_id,
+            verification_result_id=str(verification_result["result_id"]),
+            review_id=str(review_result["review_id"]),
+            review_packet_hash="a" * 64,
+            implementer_request_id="ireq-seed",
+            implementer_adapter_id="iadp-seed",
+            reviewer_request_id="rreq-seed",
+            reviewer_adapter_id=review_route.REQUIRED_ADAPTER,
+            provider_id=review_route.PROVIDER_ID,
+            model_id=review_route.MODEL_ID,
+            implementer_lineage="claude",
+            reviewer_lineage=review_route.REVIEWER_LINEAGE,
+            response_schema_sha256=review_route.RESPONSE_SCHEMA_SHA256,
+            response_evidence_id="evi-1",
+            response_sha256="c" * 64,
+            verdict="PASS",
+            objections=[],
+        )
+        self.store.insert("review_route_receipts", {
+            **{k: v for k, v in payload.items() if k != "objections"},
+            "objections_json": canonical_json(payload["objections"]),
+            "receipt_hash": review_route.receipt_hash(payload),
+            "created_at": self.store.now(),
+            "seq": self.store.next_seq(),
+        })
 
     def test_every_append_only_table_was_actually_seeded(self):
         for table in _APPEND_ONLY_TABLES:

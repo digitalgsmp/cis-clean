@@ -34,6 +34,7 @@ from ..authority.evidence import EvidenceAuthority
 from ..authority.runs import COMPLETED, FAILED, RunAuthority
 from ..authority.trajectory import MICRO, TrajectoryAuthority
 from ..canonical import canonical_json, sha256_hex, sha256_text
+from ..card_factory import verify_card
 from ..errors import (
     AssuranceRefused, AuthorizationRefused, CisError, ExecutionBudgetExhausted,
     ExecutionOutputIncomplete, ExecutionRefused, ExecutionTimedOut,
@@ -110,6 +111,9 @@ class ExecutionGateway:
                  task_contract_resolver: (
                      Callable[[str], Mapping[str, Any] | None] | None
                  ) = None,
+                 task_card_resolver: (
+                     Callable[[str], Mapping[str, Any] | None] | None
+                 ) = None,
                  policy_envelope_resolver: (
                      Callable[[str], Mapping[str, Any] | None] | None
                  ) = None,
@@ -128,6 +132,7 @@ class ExecutionGateway:
         self._trajectory = trajectory
         self._registry = registry if registry is not None else default_registry()
         self._task_contract_resolver = task_contract_resolver
+        self._task_card_resolver = task_card_resolver
         self._policy_envelope_resolver = policy_envelope_resolver
         self._authorization_check_resolver = authorization_check_resolver
         self._execution_input_resolver = execution_input_resolver
@@ -192,6 +197,7 @@ class ExecutionGateway:
             registry=self._registry,
             adapter_id=adapter_id,
             task_contract_resolver=self._task_contract_resolver,
+            task_card_resolver=self._task_card_resolver,
             policy_envelope_resolver=self._policy_envelope_resolver,
             authorization_check_resolver=self._authorization_check_resolver,
             execution_input_resolver=self._execution_input_resolver,
@@ -199,7 +205,8 @@ class ExecutionGateway:
         )
 
     def with_authority_resolvers(self, *, task_contract_resolver,
-                                 execution_input_resolver) -> "ExecutionGateway":
+                                 execution_input_resolver,
+                                 task_card_resolver=None) -> "ExecutionGateway":
         """Return the same selected boundary with its authority ports bound."""
         return ExecutionGateway(
             authorizations=self._authorizations,
@@ -207,6 +214,9 @@ class ExecutionGateway:
             trajectory=self._trajectory, registry=self._registry,
             adapter_id=self._adapter_id,
             task_contract_resolver=task_contract_resolver,
+            task_card_resolver=(task_card_resolver
+                                if task_card_resolver is not None
+                                else self._task_card_resolver),
             policy_envelope_resolver=self._policy_envelope_resolver,
             authorization_check_resolver=self._authorization_check_resolver,
             execution_input_resolver=execution_input_resolver,
@@ -226,6 +236,7 @@ class ExecutionGateway:
             trajectory=self._trajectory, registry=self._registry,
             adapter_id=self._adapter_id,
             task_contract_resolver=self._task_contract_resolver,
+            task_card_resolver=self._task_card_resolver,
             policy_envelope_resolver=self._policy_envelope_resolver,
             authorization_check_resolver=self._authorization_check_resolver,
             execution_input_resolver=self._execution_input_resolver,
@@ -263,6 +274,41 @@ class ExecutionGateway:
                 )
             contract = dict(contract)
             payload["frozen_task_contract"] = contract
+
+        if adapter.requires_task_card:
+            if contract is None:
+                raise ExecutionRefused(
+                    "task-card backend requires a frozen task contract",
+                    authorization_id=str(row["authorization_id"]))
+            if self._task_card_resolver is None:
+                raise ExecutionRefused(
+                    "task-card backend has no authority-derived card resolver",
+                    authorization_id=str(row["authorization_id"]))
+            try:
+                resolved_card = self._task_card_resolver(
+                    str(contract["task_contract_id"]))
+                if resolved_card is None:
+                    raise ExecutionRefused(
+                        "no task card exists for the frozen task contract",
+                        authorization_id=str(row["authorization_id"]))
+                card = dict(resolved_card)
+                verify_card(card)
+            except CisError as exc:
+                raise ExecutionRefused(
+                    "authority-derived task card did not verify",
+                    authorization_id=str(row["authorization_id"])) from exc
+            if (str(card.get("task_contract_id"))
+                    != str(contract.get("task_contract_id"))
+                    or str(card.get("task_contract_hash"))
+                    != str(contract.get("task_contract_hash"))
+                    or str(card.get("authorization_id"))
+                    != str(row["authorization_id"])
+                    or str(card.get("authorization_binding_hash"))
+                    != str(row["binding_hash"])):
+                raise ExecutionRefused(
+                    "task card is not bound to this authorization and contract",
+                    authorization_id=str(row["authorization_id"]))
+            payload["task_card"] = card
 
         if adapter.requires_policy_envelope:
             if contract is None:

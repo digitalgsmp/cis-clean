@@ -73,6 +73,7 @@ from ..authority.trajectory import MACRO, MICRO, TrajectoryAuthority
 from ..blueprint import Blueprint, CanonicalBasis, load_blueprint
 from ..blueprint.manifest import IN_SCOPE_RECONSTRUCTION_STATUSES
 from ..canonical import sha256_hex
+from ..card_factory import CardFactoryProjection
 from ..continuity import classify, retrieve_antecedents
 from ..errors import CisError
 from ..execution.gateway import ExecutionGateway
@@ -140,11 +141,14 @@ class Workbench:
         self.authored_source_issuance = AuthoredSourceIssuer(
             store=store, blueprint=self.blueprint,
             authorizations=self.authorizations, gateway=provisional_gateway)
+        self.card_factory = CardFactoryProjection(
+            store=self.store, blueprint=self.blueprint)
         self.gateway = provisional_gateway.with_authority_resolvers(
             task_contract_resolver=(
                 self.authored_source_issuance.task_contract_for_authorization),
             execution_input_resolver=(
                 self.authored_source_issuance.execution_input_for_task),
+            task_card_resolver=self.card_factory.card,
         )
         # Issuance must query the final gateway carrying the same resolvers and
         # selected adapter that dispatch will use.
